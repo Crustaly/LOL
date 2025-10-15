@@ -1,226 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>League of Legends - Quests Interface</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Beaufort+for+LOL:wght@400;500;600;700&display=swap" rel="stylesheet" crossorigin>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" crossorigin>
-    <meta name="description" content="Interactive League of Legends quests interface with smooth animations">
-    <meta name="keywords" content="League of Legends, quests, interface, anime.js, gaming">
-    <meta name="author" content="Tyler">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
-</head>
-<body>
-    <div class="app-container">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <i class="fas fa-sword"></i>
-                    <span>QUESTS</span>
-                </div>
-                <div class="player-info">
-                    <div class="level-badge">
-                        <span class="level">15</span>
-                    </div>
-                    <div class="player-name">Summoner</div>
-                </div>
-            </div>
-        </header>
+    <title>My Web App</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+  </head>
+  <body>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Quest Categories -->
-            <div class="quest-categories">
-                <button class="category-btn active" data-category="daily">
-                    <i class="fas fa-calendar-day"></i>
-                    <span>Daily</span>
-                </button>
-                <button class="category-btn" data-category="weekly">
-                    <i class="fas fa-calendar-week"></i>
-                    <span>Weekly</span>
-                </button>
-                <button class="category-btn" data-category="event">
-                    <i class="fas fa-star"></i>
-                    <span>Event</span>
-                </button>
-            </div>
-
-            <!-- Quest List -->
-            <div class="quest-list">
-                <!-- Daily Quests -->
-                <div class="quest-category-content active" id="daily-quests">
-                    <div class="quest-item" data-quest="win-games">
-                        <div class="quest-icon">
-                            <i class="fas fa-trophy"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Victory Seeker</h3>
-                            <p class="quest-description">Win 3 games in any game mode</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="2/3"></div>
-                                </div>
-                                <span class="progress-text">2/3</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-coins"></i>
-                                <span>500 Blue Essence</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn" disabled>
-                                <i class="fas fa-lock"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="quest-item" data-quest="play-champions">
-                        <div class="quest-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Champion Explorer</h3>
-                            <p class="quest-description">Play 5 different champions</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="5/5"></div>
-                                </div>
-                                <span class="progress-text">5/5</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-gem"></i>
-                                <span>1000 Blue Essence</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn claimable">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="quest-item" data-quest="kill-minions">
-                        <div class="quest-icon">
-                            <i class="fas fa-skull"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Minion Slayer</h3>
-                            <p class="quest-description">Kill 100 minions</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="67/100"></div>
-                                </div>
-                                <span class="progress-text">67/100</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-coins"></i>
-                                <span>300 Blue Essence</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn" disabled>
-                                <i class="fas fa-lock"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Weekly Quests -->
-                <div class="quest-category-content" id="weekly-quests">
-                    <div class="quest-item" data-quest="weekly-wins">
-                        <div class="quest-icon">
-                            <i class="fas fa-crown"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Weekly Champion</h3>
-                            <p class="quest-description">Win 10 games this week</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="7/10"></div>
-                                </div>
-                                <span class="progress-text">7/10</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-gem"></i>
-                                <span>2000 Blue Essence</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn" disabled>
-                                <i class="fas fa-lock"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="quest-item" data-quest="weekly-time">
-                        <div class="quest-icon">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Time Warrior</h3>
-                            <p class="quest-description">Play for 5 hours this week</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="5/5"></div>
-                                </div>
-                                <span class="progress-text">5/5</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-gem"></i>
-                                <span>1500 Blue Essence</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn claimable">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Event Quests -->
-                <div class="quest-category-content" id="event-quests">
-                    <div class="quest-item" data-quest="event-special">
-                        <div class="quest-icon">
-                            <i class="fas fa-magic"></i>
-                        </div>
-                        <div class="quest-content">
-                            <h3 class="quest-title">Arcane Explorer</h3>
-                            <p class="quest-description">Complete the Arcane event storyline</p>
-                            <div class="quest-progress">
-                                <div class="progress-bar">
-                                    <div class="progress-fill" data-progress="3/5"></div>
-                                </div>
-                                <span class="progress-text">3/5</span>
-                            </div>
-                            <div class="quest-reward">
-                                <i class="fas fa-star"></i>
-                                <span>Special Arcane Skin</span>
-                            </div>
-                        </div>
-                        <div class="quest-status">
-                            <button class="claim-btn" disabled>
-                                <i class="fas fa-lock"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <!-- Notification Toast -->
-        <div class="notification-toast" id="notification-toast">
-            <div class="toast-content">
-                <i class="fas fa-check-circle"></i>
-                <span class="toast-message">Quest completed!</span>
-            </div>
-        </div>
+    <div class="jumbotron">
+      <h1>My Web App</h1>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-    <script src="script.js"></script>
-</body>
-</html>
+    <div class="tabs">
+      <div class="tab active" data-tab="1">Overview</div>
+      <div class="tab" data-tab="2">Score</div>
+      <div class="tab" data-tab="3">Top</div>
+      <div class="tab" data-tab="4">Jungle</div>
+      <div class="tab" data-tab="5">Mid</div>
+      <div class="tab" data-tab="6">Bot</div>
+      <div class="tab" data-tab="7">Support</div>
+      <div class="tab" data-tab="8">Champions</div>
+      <div class="tab" data-tab="9">Quests</div>
+    </div>
+
+    <div class="container">
+      <canvas id="lineChart"></canvas>
+
+      <div class="content-section dynamic-section">
+        <h2>Dynamic Section</h2>
+        <div id="dynamicContent">Loading...</div>
+      </div>
+
+      <div class="content-section">
+        <h2>Section 1</h2>
+        <p>This section contains static content.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>Section 3</h2>
+        <p>Another section with static content.</p>
+      </div>
+
+      <div class="content-section">
+        <h2>Section 4</h2>
+        <p>More static content goes here.</p>
+      </div>
+    </div>
+
+  </body>
+  </html>

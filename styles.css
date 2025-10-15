@@ -1,485 +1,67 @@
-/* League of Legends Quest Interface Styles */
-
-/* CSS Variables for LoL Color Scheme */
 :root {
-    --lol-gold: #C9AA71;
-    --lol-blue: #0F1419;
-    --lol-dark-blue: #0A0E13;
-    --lol-accent-blue: #1E2328;
-    --lol-border: #463714;
-    --lol-text-primary: #F0E6D2;
-    --lol-text-secondary: #A09B8C;
-    --lol-success: #00D4AA;
-    --lol-warning: #FFA500;
-    --lol-danger: #FF6B6B;
-    --lol-gradient: linear-gradient(135deg, #1E2328 0%, #0F1419 100%);
-    --lol-gold-gradient: linear-gradient(135deg, #C9AA71 0%, #F0E6D2 100%);
-    --lol-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    --lol-glow: 0 0 20px rgba(201, 170, 113, 0.3);
+  --primary-color:linear-gradient(135deg, #1E2328 0%, #0F1419 100%);
+  --secondary-color: #6C757D;
+  --background-color: #F8F9FA;
+  --text-color: #212529;
+  --border-radius: 5px;
 }
 
-/* Reset and Base Styles */
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
 
 body {
-    font-family: 'Beaufort for LOL', 'Arial', sans-serif;
-    background: var(--lol-gradient);
-    color: var(--lol-text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color:#0e141b ;
 }
-
-/* App Container */
-.app-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: radial-gradient(ellipse at center, rgba(201, 170, 113, 0.1) 0%, transparent 70%);
+.jumbotron {
+  background: #01162d;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  padding: 40px 20px;
 }
-
-/* Header Styles */
-.header {
-    background: var(--lol-accent-blue);
-    border-bottom: 2px solid var(--lol-border);
-    box-shadow: var(--lol-shadow);
-    position: relative;
-    z-index: 100;
+.tabs {
+  display: flex;
+  justify-content: center;
+  background: #f8f9fa;
+  border-bottom: 2px solid #ddd;
+  flex-wrap: wrap;
 }
-
-.header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--lol-gold-gradient);
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin: 2px;
+  background: #00085b;
+  border-radius: 5px;
+  color: white;
 }
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.logo {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--lol-gold);
-    text-shadow: 0 0 10px rgba(201, 170, 113, 0.5);
-}
-
-.logo i {
-    font-size: 1.8rem;
-    animation: pulse 2s infinite;
-}
-
-.player-info {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.level-badge {
-    background: var(--lol-gold-gradient);
-    color: var(--lol-blue);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1.1rem;
-    box-shadow: var(--lol-glow);
-}
-
-.player-name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--lol-text-primary);
-}
-
-/* Main Content */
-.main-content {
-    flex: 1;
-    padding: 2rem;
-    max-width: 1200px;
-    margin: 0 auto;
-    width: 100%;
-}
-
-/* Quest Categories */
-.quest-categories {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-    justify-content: center;
-}
-
-.category-btn {
-    background: var(--lol-accent-blue);
-    border: 2px solid var(--lol-border);
-    color: var(--lol-text-secondary);
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-family: inherit;
-    font-size: 1rem;
-    font-weight: 600;
-    position: relative;
-    overflow: hidden;
-}
-
-.category-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: var(--lol-gold-gradient);
-    transition: left 0.3s ease;
-    z-index: -1;
-}
-
-.category-btn:hover {
-    color: var(--lol-blue);
-    border-color: var(--lol-gold);
-    box-shadow: var(--lol-glow);
-    transform: translateY(-2px);
-}
-
-.category-btn:hover::before {
-    left: 0;
-}
-
-.category-btn.active {
-    background: var(--lol-gold-gradient);
-    color: var(--lol-blue);
-    border-color: var(--lol-gold);
-    box-shadow: var(--lol-glow);
-}
-
-/* Quest List */
-.quest-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.quest-category-content {
-    display: none;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.quest-category-content.active {
-    display: flex;
-}
-
-/* Quest Item */
-.quest-item {
-    background: var(--lol-accent-blue);
-    border: 2px solid var(--lol-border);
-    border-radius: 12px;
-    padding: 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.quest-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background: var(--lol-gold);
-    transform: scaleY(0);
-    transform-origin: bottom;
-    transition: transform 0.3s ease;
-}
-
-.quest-item:hover {
-    border-color: var(--lol-gold);
-    box-shadow: var(--lol-glow);
-    transform: translateX(5px);
-}
-
-.quest-item:hover::before {
-    transform: scaleY(1);
-}
-
-.quest-icon {
-    width: 60px;
-    height: 60px;
-    background: var(--lol-gold-gradient);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--lol-blue);
-    font-size: 1.5rem;
-    flex-shrink: 0;
-    box-shadow: var(--lol-glow);
-}
-
-.quest-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.quest-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--lol-text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.quest-description {
-    color: var(--lol-text-secondary);
-    font-size: 0.95rem;
-    margin-bottom: 0.75rem;
-}
-
-.quest-progress {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-}
-
-.progress-bar {
-    flex: 1;
-    height: 8px;
-    background: var(--lol-dark-blue);
-    border-radius: 4px;
-    overflow: hidden;
-    border: 1px solid var(--lol-border);
-}
-
-.progress-fill {
-    height: 100%;
-    background: var(--lol-gold-gradient);
-    border-radius: 4px;
-    transition: width 0.5s ease;
-    position: relative;
-}
-
-.progress-fill::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: shimmer 2s infinite;
-}
-
-.progress-text {
-    font-weight: 600;
-    color: var(--lol-gold);
-    font-size: 0.9rem;
-    min-width: 40px;
-    text-align: right;
-}
-
-.quest-reward {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--lol-gold);
-    font-weight: 600;
-    font-size: 0.9rem;
-}
-
-.quest-reward i {
-    font-size: 1rem;
-}
-
-.quest-status {
-    flex-shrink: 0;
-}
-
-.claim-btn {
-    width: 50px;
-    height: 50px;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.claim-btn:disabled {
-    background: var(--lol-dark-blue);
-    color: var(--lol-text-secondary);
-    border: 2px solid var(--lol-border);
-    cursor: not-allowed;
-}
-
-.claim-btn.claimable {
-    background: var(--lol-success);
-    color: white;
-    border: 2px solid var(--lol-success);
-    box-shadow: 0 0 20px rgba(0, 212, 170, 0.5);
-}
-
-.claim-btn.claimable:hover {
-    transform: scale(1.1);
-    box-shadow: 0 0 30px rgba(0, 212, 170, 0.8);
-}
-
-.claim-btn.claimable:active {
-    transform: scale(0.95);
-}
-
-/* Notification Toast */
-.notification-toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: var(--lol-success);
-    color: white;
-    padding: 1rem 1.5rem;
-    border-radius: 8px;
-    box-shadow: var(--lol-shadow);
-    transform: translateX(400px);
-    transition: transform 0.3s ease;
-    z-index: 1000;
-}
-
-.notification-toast.show {
-    transform: translateX(0);
-}
-
-.toast-content {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-}
-
-/* Animations */
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-}
-
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+.tab:hover {
+  color: #0F1419; /* text color: blackish */
+  border-color: #C9AA71; /* gold border */
+  box-shadow: 0 0 20px rgba(201, 170, 113, 0.3); /* gold glow */
+  transform: translateY(-2px);
+  background: #fff8e1; /* optional soft gold background */
+  transition: all 0.2s ease;
 }
 
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .header-content {
-        padding: 1rem;
-    }
-    
-    .main-content {
-        padding: 1rem;
-    }
-    
-    .quest-categories {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .category-btn {
-        padding: 0.75rem 1rem;
-    }
-    
-    .quest-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-    }
-    
-    .quest-content {
-        width: 100%;
-    }
-    
-    .quest-progress {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-    
-    .progress-text {
-        text-align: center;
-    }
+
+
+
+.tab.active {
+  background: #007BFF;
+  color: white;
+  border-color: #007BFF;
 }
+.container {
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
 
-
-/* Success States */
-.quest-item.completed {
-    border-color: var(--lol-success);
-    background: rgba(0, 212, 170, 0.1);
 }
-
-.quest-item.completed .quest-icon {
-    background: var(--lol-success);
-    color: white;
-}
-
-/* Hover Effects */
-.quest-item:hover .quest-icon {
-    transform: rotate(10deg) scale(1.1);
-}
-
-.quest-item:hover .quest-title {
-    color: var(--lol-gold);
-}
-
-/* Focus States for Accessibility */
-.category-btn:focus,
-.claim-btn:focus {
-    outline: 2px solid var(--lol-gold);
-    outline-offset: 2px;
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: var(--lol-dark-blue);
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--lol-gold);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--lol-text-primary);
+.content-section {
+  padding: 20px;
+  margin: 15px 0;
+  background: #f1f1f1;
+  border-radius: 8px;
 }
