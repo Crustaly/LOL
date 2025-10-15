@@ -1,0 +1,67 @@
+:root {
+  --primary-color:linear-gradient(135deg, #1E2328 0%, #0F1419 100%);
+  --secondary-color: #6C757D;
+  --background-color: #F8F9FA;
+  --text-color: #212529;
+  --border-radius: 5px;
+}
+
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color:#0e141b ;
+}
+.jumbotron {
+  background: #01162d;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  padding: 40px 20px;
+}
+.tabs {
+  display: flex;
+  justify-content: center;
+  background: #f8f9fa;
+  border-bottom: 2px solid #ddd;
+  flex-wrap: wrap;
+}
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin: 2px;
+  background: #00085b;
+  border-radius: 5px;
+  color: white;
+}
+.tab:hover {
+  color: #0F1419; /* text color: blackish */
+  border-color: #C9AA71; /* gold border */
+  box-shadow: 0 0 20px rgba(201, 170, 113, 0.3); /* gold glow */
+  transform: translateY(-2px);
+  background: #fff8e1; /* optional soft gold background */
+  transition: all 0.2s ease;
+}
+
+
+
+
+
+.tab.active {
+  background: #007BFF;
+  color: white;
+  border-color: #007BFF;
+}
+.container {
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
+  
+}
+.content-section {
+  padding: 20px;
+  margin: 15px 0;
+  background: #f1f1f1;
+  border-radius: 8px;
+}
