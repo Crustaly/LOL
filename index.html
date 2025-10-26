@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Web App</title>
+    <title>League of Legends Stats Dashboard</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -12,7 +12,7 @@
   <body>
 
     <div class="jumbotron">
-      <h1>My Web App</h1>
+      <h1>League Performance Dashboard</h1>
     </div>
 
     <div class="tabs">
@@ -28,27 +28,12 @@
     </div>
 
     <div class="container">
-      <canvas id="lineChart"></canvas>
+      <canvas id="lineChart" style="display: none;"></canvas>
 
       <div class="content-section dynamic-section">
-        <h2>Dynamic Section</h2>
         <div id="dynamicContent">Loading...</div>
       </div>
 
-      <div class="content-section">
-        <h2>Section 1</h2>
-        <p>This section contains static content.</p>
-      </div>
-
-      <div class="content-section">
-        <h2>Section 3</h2>
-        <p>Another section with static content.</p>
-      </div>
-
-      <div class="content-section">
-        <h2>Section 4</h2>
-        <p>More static content goes here.</p>
-      </div>
     </div>
 
   </body>
