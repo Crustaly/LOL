@@ -65,3 +65,130 @@ body {
   background: #f1f1f1;
   border-radius: 8px;
 }
+.overview-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.overview-section h3 {
+  margin-top: 0;
+  color: #333;
+}
+.overview-section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.overview-section th {
+  background-color: #007BFF;
+  color: white;
+  padding: 10px;
+  text-align: left;
+}
+.overview-section td {
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+.overview-section tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* Quest Page Styles */
+.quest-container {
+  padding: 20px;
+  background: white;
+}
+
+.quest-container h2 {
+  color: #007BFF;
+  margin-bottom: 10px;
+}
+
+.quest-container .rank-lp {
+  color: #666;
+  font-size: 18px;
+  margin-bottom: 30px;
+}
+
+.quest-container h3 {
+  color: #333;
+  border-bottom: 2px solid #007BFF;
+  padding-bottom: 10px;
+}
+
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.quest-card {
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.quest-card:hover {
+  border-color: #007BFF;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.quest-card h4 {
+  color: #007BFF;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.quest-card p {
+  color: #666;
+  margin-bottom: 15px;
+}
+
+.quest-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quest-progress {
+  color: #333;
+  font-weight: bold;
+}
+
+.quest-difficulty {
+  padding: 5px 12px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.difficulty-easy {
+  background-color: #28a745;
+  color: white;
+}
+
+.difficulty-medium {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.difficulty-hard {
+  background-color: #fd7e14;
+  color: white;
+}
+
+.difficulty-very-hard {
+  background-color: #dc3545;
+  color: white;
+}
+
+.difficulty-extreme {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
