@@ -4,33 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>League of Legends Stats Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
   </head>
-  <body>
+  <body class="bg-slate-900 text-gray-100 min-h-screen">
 
-    <div class="jumbotron">
-      <h1>League Performance Dashboard</h1>
-    </div>
-
-    <div class="tabs">
-      <div class="tab active" data-tab="1">Overview</div>
-      <div class="tab" data-tab="2">Score</div>
-      <div class="tab" data-tab="3">Champ/Role Overview</div>
-      <div class="tab" data-tab="4">Champions</div>
-      <div class="tab" data-tab="5">Quests</div>
-    </div>
-
-    <div class="container">
-      <canvas id="lineChart" style="display: none;"></canvas>
-
-      <div class="content-section dynamic-section">
-        <div id="dynamicContent">Loading...</div>
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-8">
+      <div class="container mx-auto px-6 text-center">
+        <h1 class="text-3xl font-bold tracking-tight">League Performance Dashboard</h1>
       </div>
+    </header>
 
-    </div>
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-850 border-b border-slate-700 sticky top-0 z-10">
+      <div class="container mx-auto px-6 flex flex-wrap justify-center gap-0">
+        <button class="tab px-8 py-4 text-sm font-semibold uppercase tracking-wide border-b-3 border-transparent hover:bg-slate-800 transition-colors duration-200" data-tab="1">Overview</button>
+        <button class="tab px-8 py-4 text-sm font-semibold uppercase tracking-wide border-b-3 border-transparent hover:bg-slate-800 transition-colors duration-200" data-tab="2">Score</button>
+        <button class="tab px-8 py-4 text-sm font-semibold uppercase tracking-wide border-b-3 border-transparent hover:bg-slate-800 transition-colors duration-200" data-tab="3">Match History</button>
+        <button class="tab px-8 py-4 text-sm font-semibold uppercase tracking-wide border-b-3 border-transparent hover:bg-slate-800 transition-colors duration-200" data-tab="4">Champions</button>
+        <button class="tab px-8 py-4 text-sm font-semibold uppercase tracking-wide border-b-3 border-transparent hover:bg-slate-800 transition-colors duration-200" data-tab="5">Quests</button>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+      <canvas id="lineChart" class="hidden"></canvas>
+      <div id="dynamicContent" class="text-gray-300">Loading...</div>
+    </main>
+
+    <!-- Tailwind Config -->
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'slate-850': '#182028',
+            }
+          }
+        }
+      }
+    </script>
 
   </body>
   </html>

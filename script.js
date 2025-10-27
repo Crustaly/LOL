@@ -113,6 +113,17 @@ function initializeMatchData() {
       score: 93,  // Final score
       scoreHistory: [85, 90, 92, 88, 93],
       position: 3,  // Out of 10 players
+      pros: [
+        'Strong late game scaling with 4th shot',
+        'Excellent positioning throughout teamfights',
+        'Good map awareness and objective control',
+        'Consistent CS and gold income'
+      ],
+      cons: [
+        'Missed several skill shots early game',
+        'Could have avoided a few unnecessary deaths',
+        'Vision control needs improvement'
+      ],
       playerRoster: [
         { player: 'Summoner1', champion: 'Yasuo', role: 'Top', score: 98, position: 1, isYou: false, kills: 18, deaths: 3, assists: 5, csPerMin: 9.2, goldEarned: 12450, damageTaken: 15200, items: ['Mythic', 'Boots', 'Blade', 'Defense'] },
         { player: 'Summoner2', champion: 'Lee Sin', role: 'Jungle', score: 95, position: 2, isYou: false, kills: 15, deaths: 4, assists: 12, csPerMin: 6.8, goldEarned: 11980, damageTaken: 18100, items: ['Mythic', 'Boots', 'Damage', 'Tank'] },
@@ -136,6 +147,16 @@ function initializeMatchData() {
       score: 82,
       scoreHistory: [78, 82, 80, 85, 82],
       position: 5,
+      pros: [
+        'Excellent support positioning',
+        'Successfully peeled for ADC multiple times',
+        'Good use of ultimate in teamfights'
+      ],
+      cons: [
+        'Could have improved warding coverage',
+        'Missed a few easy Q pulls',
+        'Need better roam timings'
+      ],
       playerRoster: [
         { player: 'Summoner1', champion: 'Katarina', role: 'Mid', score: 96, position: 1, isYou: false, kills: 22, deaths: 2, assists: 8, csPerMin: 8.5, goldEarned: 13800, damageTaken: 7200, items: ['Mythic', 'Boots', 'AP', 'Pen'] },
         { player: 'Summoner2', champion: 'Vayne', role: 'Bot', score: 94, position: 2, isYou: false, kills: 19, deaths: 3, assists: 6, csPerMin: 9.8, goldEarned: 13100, damageTaken: 9800, items: ['Mythic', 'Boots', 'AS', 'Crit'] },
@@ -159,6 +180,16 @@ function initializeMatchData() {
       score: 71,
       scoreHistory: [72, 70, 68, 73, 71],
       position: 8,
+      pros: [
+        'Decent farming throughout the game',
+        'Good use of tumble for outplays'
+      ],
+      cons: [
+        'Poor positioning in teamfights',
+        'Too aggressive early game',
+        'Failed to capitalize on lead',
+        'Needed better itemization'
+      ],
       playerRoster: [
         { player: 'Summoner1', champion: 'Draven', role: 'Bot', score: 96, position: 1, isYou: false, kills: 20, deaths: 1, assists: 7, csPerMin: 10.1, goldEarned: 14500, damageTaken: 5600, items: ['Mythic', 'Boots', 'Crit1', 'Crit2'] },
         { player: 'Summoner2', champion: 'Aurelion Sol', role: 'Mid', score: 93, position: 2, isYou: false, kills: 17, deaths: 2, assists: 10, csPerMin: 9.4, goldEarned: 13200, damageTaken: 8400, items: ['Mythic', 'Boots', 'AP', 'CDR'] },
@@ -182,6 +213,16 @@ function initializeMatchData() {
       score: 92,
       scoreHistory: [88, 91, 89, 94, 92],
       position: 2,
+      pros: [
+        'Dominant early game presence',
+        'Excellent wave management',
+        'Strong split-push pressure',
+        'Great objective control'
+      ],
+      cons: [
+        'Could have rotated faster to teamfights',
+        'Missed one crucial trap placement'
+      ],
       playerRoster: [
         { player: 'Summoner1', champion: 'Gangplank', role: 'Top', score: 98, position: 1, isYou: false, kills: 21, deaths: 1, assists: 6, csPerMin: 9.5, goldEarned: 14100, damageTaken: 11200, items: ['Mythic', 'Boots', 'Crit', 'CDR'] },
         { player: 'You', champion: 'Caitlyn', role: 'Top', score: 92, position: 2, isYou: true, kills: 10, deaths: 2, assists: 5, csPerMin: 8.2, goldEarned: 12200, damageTaken: 7800, items: ['Mythic', 'Boots', 'Crit1', 'Crit2'] },
@@ -205,6 +246,17 @@ function initializeMatchData() {
       score: 84,
       scoreHistory: [82, 85, 88, 86, 84],
       position: 4,
+      pros: [
+        'Good roaming and map pressure',
+        'Strong ultimate usage',
+        'Well-timed teleports',
+        'Consistent CS'
+      ],
+      cons: [
+        'Could improve trading in lane',
+        'Missed a few Q skill shots',
+        'Need better vision placement'
+      ],
       playerRoster: [
         { player: 'Summoner1', champion: 'Riven', role: 'Top', score: 94, position: 1, isYou: false, kills: 19, deaths: 2, assists: 8, csPerMin: 9.0, goldEarned: 13500, damageTaken: 14000, items: ['Mythic', 'Boots', 'Damage', 'LS'] },
         { player: 'Summoner2', champion: 'Tristana', role: 'Bot', score: 91, position: 2, isYou: false, kills: 17, deaths: 3, assists: 9, csPerMin: 9.6, goldEarned: 13200, damageTaken: 9200, items: ['Mythic', 'Boots', 'Crit1', 'Crit2'] },
@@ -324,126 +376,171 @@ function generateQuests() {
 // Function to display quests
 function displayQuests() {
   if (!leagueData.currentRank) {
-    $('#dynamicContent').html('<p>No rank data available. Please check API connection.</p>');
+    $('#dynamicContent').html('<p class="text-gray-400">No rank data available. Please check API connection.</p>');
     return;
   }
   
-  let html = '<div class="quest-container">';
-  html += `<h2>Your Current Rank: ${leagueData.currentRank.tier} ${leagueData.currentRank.division}</h2>`;
-  html += `<p class="rank-lp">LP: ${leagueData.currentRank.lp}</p>`;
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8 mb-6">';
+  html += `<h2 class="text-2xl font-bold text-gray-100 mb-2">Your Current Rank: ${leagueData.currentRank.tier} ${leagueData.currentRank.division}</h2>`;
+  html += `<p class="text-sky-400 text-lg font-semibold">LP: ${leagueData.currentRank.lp}</p>`;
+  html += '</div>';
   
-  html += '<h3>Active Quests</h3>';
-  html += '<div class="quest-list">';
+  html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Active Quests</h3>';
+  html += '<div class="space-y-3">';
   
   if (leagueData.quests.length === 0) {
-    html += '<p>No quests available at the moment.</p>';
+    html += '<p class="text-gray-400">No quests available at the moment.</p>';
   } else {
-    leagueData.quests.forEach((quest, index) => {
-      html += `<div class="quest-card">`;
-      html += `<h4>${quest.title}</h4>`;
-      html += `<p>${quest.description}</p>`;
-      html += `<div class="quest-info">`;
-      html += `<span class="quest-progress">Progress: ${quest.progress}</span>`;
-      html += `<span class="quest-difficulty difficulty-${quest.difficulty.toLowerCase().replace(' ', '-')}">${quest.difficulty}</span>`;
-      html += `</div>`;
-      html += `</div>`;
+    leagueData.quests.forEach((quest) => {
+      const difficultyColors = {
+        'Easy': 'bg-emerald-500/10 text-emerald-400 border-emerald-400',
+        'Medium': 'bg-yellow-500/10 text-yellow-400 border-yellow-400',
+        'Hard': 'bg-orange-500/10 text-orange-400 border-orange-400',
+        'Very Hard': 'bg-red-500/10 text-red-400 border-red-400',
+        'Extreme': 'bg-purple-500/10 text-purple-400 border-purple-400'
+      };
+      const colorClass = difficultyColors[quest.difficulty] || difficultyColors['Medium'];
+      
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-sky-500 transition-all duration-200">';
+      html += `<h4 class="text-lg font-semibold text-gray-100 mb-2">${quest.title}</h4>`;
+      html += `<p class="text-gray-400 text-sm mb-3">${quest.description}</p>`;
+      html += '<div class="flex justify-between items-center">';
+      html += `<span class="text-gray-400 text-sm font-medium">Progress: ${quest.progress}</span>`;
+      html += `<span class="px-3 py-1 text-xs font-bold uppercase rounded-full border ${colorClass}">${quest.difficulty}</span>`;
+      html += '</div>';
+      html += '</div>';
     });
   }
   
-  html += '</div></div>';
+  html += '</div>';
   $('#dynamicContent').html(html);
 }
 
 // Function to display champ/role overview with matches
 function displayChampRoleOverview() {
   if (!leagueData.matches || leagueData.matches.length === 0) {
-    $('#dynamicContent').html('<p>No match data available. Please check API connection.</p>');
+    $('#dynamicContent').html('<p class="text-gray-400">No match data available. Please check API connection.</p>');
     return;
   }
   
-  let html = '<div class="match-overview-container">';
-  html += '<h2>Match History by Champion & Role</h2>';
-  html += '<div class="match-list">';
+  let html = '<h2 class="text-2xl font-bold text-gray-100 mb-6">Match History by Champion & Role</h2>';
+  html += '<div class="space-y-3">';
   
   leagueData.matches.forEach((match, index) => {
     const winClass = match.win ? 'victory' : 'defeat';
     const winText = match.win ? 'Victory' : 'Defeat';
     
-    html += `<div class="match-card ${winClass}" data-match-id="${match.matchId}">`;
-    html += '<div class="match-card-header">';
-    html += `<div class="match-result ${winClass}">${winText}</div>`;
-    html += `<div class="match-info">`;
-    html += `<div class="match-date">${match.date}</div>`;
-    html += `<div class="match-champion">${match.champion}</div>`;
-    html += `<div class="match-role">${match.role}</div>`;
-    html += `</div>`;
-    html += `<div class="match-kda">${match.kda}</div>`;
-    html += `<div class="match-position">#${match.position}/10</div>`;
-    html += `<div class="expand-icon">▼</div>`;
+    const borderColor = match.win ? 'border-emerald-500' : 'border-red-500';
+    const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
+    
+    html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
+    html += '<div class="flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
+    html += `<div class="px-3 py-1 text-xs font-bold uppercase tracking-wide border rounded ${resultBg}">${winText}</div>`;
+    html += '<div class="flex-1">';
+    html += `<div class="text-xs text-gray-500">${match.date}</div>`;
+    html += `<div class="text-base font-semibold text-gray-100">${match.champion}</div>`;
+    html += `<div class="text-xs text-gray-400">${match.role}</div>`;
     html += '</div>';
-    html += '</div>'; // match-card-header
+    html += `<div class="text-sm text-gray-400 font-medium px-4">${match.kda}</div>`;
+    html += `<div class="text-sky-400 font-bold">#${match.position}/10</div>`;
+    html += '<div class="text-gray-500">▼</div>';
+    html += '</div>';
     
-    // Expanded content (hidden by default)
-    html += `<div class="match-expanded" id="expanded-${match.matchId}" style="display: none;">`;
-    html += '<div class="match-detailed-stats">';
+    html += `<div id="expanded-${match.matchId}" style="display: none;" class="bg-slate-900 p-6">`;
+    html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
     
-    // Score graph placeholder
-    html += '<div class="score-graph-container">';
-    html += '<h4>Score Over Time</h4>';
+    // Score graph
+    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
+    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Score Over Time</h4>';
     html += `<canvas id="scoreChart-${index}" width="400" height="150"></canvas>`;
     html += '</div>';
+    html += '</div>'; // grid
     
     // Match Leaderboard
-    html += '<div class="match-leaderboard">';
-    html += '<h4>Match Leaderboard</h4>';
-    html += '<div class="leaderboard-list">';
+    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
+    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Match Leaderboard</h4>';
+    html += '<div class="space-y-2">';
     
     match.playerRoster.forEach((player, idx) => {
-      const rowClass = player.isYou ? 'leaderboard-row you' : 'leaderboard-row expandable-player';
       const playerId = player.player.replace(/\s+/g, '_') + '_' + idx;
+      const youClass = player.isYou ? 'bg-sky-500/10 border-sky-500' : 'bg-slate-700 border-slate-700';
+      const topThreeBgs = {
+        1: 'bg-yellow-500/10 border-yellow-500',
+        2: 'bg-gray-400/10 border-gray-400',
+        3: 'bg-orange-500/10 border-orange-500'
+      };
+      const topClass = topThreeBgs[player.position] || youClass;
       
-      // Main row
-      html += `<div class="${rowClass}" data-player-id="${playerId}" data-player-index="${idx}">`;
-      html += `<div class="leaderboard-position">#${player.position}</div>`;
-      html += `<div class="leaderboard-player">${player.player}</div>`;
-      html += `<div class="leaderboard-champion">${player.champion}</div>`;
-      html += `<div class="leaderboard-role">${player.role}</div>`;
-      html += `<div class="leaderboard-score">${player.score}</div>`;
-      html += `<div class="leaderboard-stats-icon">📊</div>`;
+      html += '<div class="grid grid-cols-6 gap-3 items-center p-3 rounded-lg border hover:bg-slate-700/50 transition-colors cursor-pointer ' + topClass + '" data-player-id="' + playerId + '">';
+      html += `<div class="text-sky-400 font-bold text-sm">#${player.position}</div>`;
+      html += `<div class="font-semibold text-sm">${player.player}</div>`;
+      html += `<div class="text-gray-400 text-sm">${player.champion}</div>`;
+      html += `<div class="text-gray-500 text-xs">${player.role}</div>`;
+      html += `<div class="text-sky-400 font-bold text-sm text-right">${player.score}</div>`;
+      html += '<div class="text-center">📊</div>';
       html += '</div>';
       
-      // Expanded details (hidden by default)
-      html += `<div class="player-details ${playerId}" style="display: none;">`;
-      html += '<div class="player-stats-grid">';
-      html += `<div class="stat-box"><span class="stat-label">Kills:</span><span class="stat-value">${player.kills}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">Deaths:</span><span class="stat-value">${player.deaths}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">Assists:</span><span class="stat-value">${player.assists}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">KDA:</span><span class="stat-value">${((player.kills + player.assists) / player.deaths).toFixed(2)}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">CS/min:</span><span class="stat-value">${player.csPerMin}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">Gold:</span><span class="stat-value">${player.goldEarned.toLocaleString()}</span></div>`;
-      html += `<div class="stat-box"><span class="stat-label">DMG Taken:</span><span class="stat-value">${player.damageTaken.toLocaleString()}</span></div>`;
-      html += `<div class="stat-box items-box"><span class="stat-label">Items:</span><span class="stat-value">${player.items.join(', ')}</span></div>`;
-      html += '</div>';
-      html += '</div>'; // player-details
+      html += `<div class="${playerId} bg-slate-800 border border-slate-700 rounded-lg p-5 mt-2" style="display: none;">`;
+      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Kills</div><div class="text-lg font-bold text-gray-200">${player.kills}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Deaths</div><div class="text-lg font-bold text-gray-200">${player.deaths}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Assists</div><div class="text-lg font-bold text-gray-200">${player.assists}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">KDA</div><div class="text-lg font-bold text-gray-200">${((player.kills + player.assists) / player.deaths).toFixed(2)}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">CS/min</div><div class="text-lg font-bold text-gray-200">${player.csPerMin}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Gold</div><div class="text-lg font-bold text-gray-200">${player.goldEarned.toLocaleString()}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">DMG Taken</div><div class="text-lg font-bold text-gray-200">${player.damageTaken.toLocaleString()}</div></div>`;
+      html += `<div class="bg-slate-900 rounded p-3 col-span-2 md:col-span-4"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Items</div><div class="text-sm font-semibold text-gray-200">${player.items.join(', ')}</div></div>`;
+      html += '</div></div>';
     });
     
-    html += '</div></div>'; // leaderboard-list and match-leaderboard
+    html += '</div></div>'; // leaderboard close, space-y-2 close
     
-    html += '</div>'; // match-detailed-stats
-    html += '</div>'; // match-expanded
+    // Pros and Cons Section
+    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
+    html += '<div class="flex items-center justify-between cursor-pointer hover:text-sky-400 transition-colors match-analysis-toggle">';
+    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Match Analysis</h4>';
+    html += '<div class="match-analysis-arrow">▼</div>';
+    html += '</div>';
+    html += '<div class="match-analysis-content grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" style="display: none;">';
+    
+    // Pros
+    html += '<div>';
+    html += '<h5 class="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">';
+    html += '<span>✅</span> Pros';
+    html += '</h5>';
+    html += '<ul class="space-y-1">';
+    match.pros.forEach(pro => {
+      html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-emerald-400">•</span><span>${pro}</span></li>`;
+    });
+    html += '</ul>';
+    html += '</div>';
+    
+    // Cons
+    html += '<div>';
+    html += '<h5 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">';
+    html += '<span>❌</span> Cons';
+    html += '</h5>';
+    html += '<ul class="space-y-1">';
+    match.cons.forEach(con => {
+      html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-red-400">•</span><span>${con}</span></li>`;
+    });
+    html += '</ul>';
+    html += '</div>';
+    
+    html += '</div></div>'; // grid and section
+    html += '</div>'; // expanded
     html += '</div>'; // match-card
   });
   
-  html += '</div>'; // match-list
-  html += '</div>'; // match-overview-container
+  html += '</div>'; // space-y-3
   
   $('#dynamicContent').html(html);
   
-  // Setup click handlers for expanding/collapsing
-  $('.match-card-header').off('click').on('click', function() {
+  // Setup click handlers for expanding/collapsing matches
+  $('[data-match-id] > div').off('click').on('click', function() {
     const matchId = $(this).parent().data('match-id');
     const expanded = $(`#expanded-${matchId}`);
-    const icon = $(this).find('.expand-icon');
+    const icon = $(this).find('div').last();
     
     if (expanded.is(':visible')) {
       expanded.slideUp();
@@ -462,12 +559,13 @@ function displayChampRoleOverview() {
   });
   
   // Setup click handlers for player details
-  $('.leaderboard-row.expandable-player').off('click').on('click', function() {
+  $('[data-player-id]').off('click').on('click', function(event) {
+    event.stopPropagation(); // Prevent event from bubbling to match header
     const playerId = $(this).data('player-id');
-    const details = $(`.player-details.${playerId}`);
+    const details = $(`.${playerId}`);
     
     // Close all other details
-    $('.player-details').not(`.${playerId}`).slideUp();
+    $('[data-player-id]').next().not(`.${playerId}`).slideUp();
     
     if (details.is(':visible')) {
       details.slideUp();
@@ -476,15 +574,18 @@ function displayChampRoleOverview() {
     }
   });
   
-  // You row is always expanded
-  $('.leaderboard-row.you').off('click').on('click', function() {
-    const playerId = $(this).data('player-id');
-    const details = $(`.player-details.${playerId}`);
+  // Setup click handlers for pros/cons toggle
+  $('.match-analysis-toggle').off('click').on('click', function(event) {
+    event.stopPropagation(); // Prevent event from bubbling to match header
+    const content = $(this).next('.match-analysis-content');
+    const arrow = $(this).find('.match-analysis-arrow');
     
-    if (details.is(':visible')) {
-      details.slideUp();
+    if (content.is(':visible')) {
+      content.slideUp();
+      arrow.text('▼');
     } else {
-      details.slideDown();
+      content.slideDown();
+      arrow.text('▲');
     }
   });
 }
@@ -505,8 +606,8 @@ function createScoreChart(canvas, scoreData) {
       datasets: [{
         label: 'Score',
         data: scoreData,
-        borderColor: '#C9AA71',
-        backgroundColor: 'rgba(201, 170, 113, 0.1)',
+        borderColor: '#0EA5E9',
+        backgroundColor: 'rgba(14, 165, 233, 0.1)',
         borderWidth: 2,
         tension: 0.4,
         fill: true
@@ -522,18 +623,18 @@ function createScoreChart(canvas, scoreData) {
         y: {
           beginAtZero: false,
           grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
+            color: '#334155'
           },
           ticks: {
-            color: '#CDBE91'
+            color: '#94A3B8'
           }
         },
         x: {
           grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
+            color: '#334155'
           },
           ticks: {
-            color: '#CDBE91'
+            color: '#94A3B8'
           }
         }
       }
@@ -543,27 +644,36 @@ function createScoreChart(canvas, scoreData) {
 
 // Function to display overview information
 function displayOverview() {
-  let html = '<div class="overview-container">';
+  let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
   
   // Past Season Ranks Section
-  html += '<div class="overview-section"><h3>Past Season Ranks</h3>';
-  html += '<table border="1" cellpadding="8" cellspacing="0">';
-  html += '<thead><tr><th>Season</th><th>Rank</th></tr></thead>';
-  html += '<tbody>';
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Past Season Ranks</h3>';
+  html += '<div class="overflow-x-auto">';
+  html += '<table class="w-full border-separate border-spacing-0">';
+  html += '<thead><tr>';
+  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Season</th>';
+  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Rank</th>';
+  html += '</tr></thead><tbody>';
   leagueData.pastSeasonRanks.forEach(s => {
-    html += `<tr><td>${s.season}</td><td>${s.rank}</td></tr>`;
+    html += `<tr class="hover:bg-slate-800/50 transition-colors"><td class="p-3 text-gray-300 border-b border-slate-700">${s.season}</td><td class="p-3 text-gray-300 border-b border-slate-700">${s.rank}</td></tr>`;
   });
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   
   // Most Played Champions Section
-  html += '<div class="overview-section"><h3>Most Played Champions</h3>';
-  html += '<table border="1" cellpadding="8" cellspacing="0">';
-  html += '<thead><tr><th>Champion</th><th>Games</th><th>Win Rate</th></tr></thead>';
-  html += '<tbody>';
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Most Played Champions</h3>';
+  html += '<div class="overflow-x-auto">';
+  html += '<table class="w-full border-separate border-spacing-0">';
+  html += '<thead><tr>';
+  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Champion</th>';
+  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Games</th>';
+  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Win Rate</th>';
+  html += '</tr></thead><tbody>';
   leagueData.mostPlayedChampions.forEach(champ => {
-    html += `<tr><td>${champ.name}</td><td>${champ.games}</td><td>${champ.winRate}</td></tr>`;
+    html += `<tr class="hover:bg-slate-800/50 transition-colors"><td class="p-3 text-gray-300 border-b border-slate-700">${champ.name}</td><td class="p-3 text-gray-300 border-b border-slate-700">${champ.games}</td><td class="p-3 text-gray-300 border-b border-slate-700">${champ.winRate}</td></tr>`;
   });
-  html += '</tbody></table></div>';
+  html += '</tbody></table></div></div>';
   
   html += '</div>';
   $('#dynamicContent').html(html);
@@ -571,8 +681,8 @@ function displayOverview() {
 
 // Handler for tab clicks
 $('.tab').on('click', function() {
-  $('.tab').removeClass('active');
-  $(this).addClass('active');
+  $('.tab').removeClass('border-sky-500 text-sky-400').addClass('border-transparent text-gray-500');
+  $(this).addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
   const tabId = $(this).data('tab');
 
   // Handle different tabs
@@ -600,6 +710,10 @@ $('.tab').on('click', function() {
 // On document ready, initialize League data and load default tab content
 $(document).ready(function() {
   console.log("On Load");
+  
+  // Set first tab as active
+  $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+  
   // Initialize League data (mock for now, ready for API integration)
   fetchLeagueData().then(() => {
     displayOverview();
