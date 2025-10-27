@@ -1,26 +1,3 @@
-// Chart.js initialization
-const ctx = document.getElementById('lineChart').getContext('2d');
-new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [{
-      label: 'Sample Data',
-      data: [12, 19, 3, 5, 2, 3],
-      borderColor: 'rgba(75, 192, 192, 1)',
-      backgroundColor: 'rgba(75, 192, 192, 0.2)',
-      fill: true,
-      tension: 0.3
-    }]
-  },
-  options: {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top' }
-    }
-  }
-});
-
 // Utility function: fetch weather for Troy, NY (latitude, longitude)
 function fetchTroyWeather() {
   // Coordinates for Troy, NY (approx)
@@ -48,7 +25,12 @@ let leagueData = {
   pastSeasonRanks: [],
   mostPlayedChampions: [],
   quests: [],  // Generated quests based on rank
-  matches: []  // Match history with champ/role data
+  matches: [],  // Match history with champ/role data
+  playerLevel: {
+    level: 1,  // Current player level
+    totalXP: 0,  // Total XP earned
+    xpForNextLevel: 100  // XP needed to reach next level
+  }
 };
 
 // Placeholder function for future League API integration
@@ -73,6 +55,15 @@ function fetchLeagueData() {
 function initializeMockData() {
   // Mock current rank - will come from API
   leagueData.currentRank = { tier: 'Diamond', division: 'III', lp: 67 };
+  
+  // Initialize player level with some base XP
+  leagueData.playerLevel = {
+    level: 1,
+    totalXP: 45,  // Starting with 45 XP (45% to level 2)
+    xpForNextLevel: 100,
+    xpIntoCurrentLevel: 45,
+    xpNeededToLevel: 55
+  };
   
   leagueData.pastSeasonRanks = [
     { season: 'Season 14', rank: 'Diamond II' },
@@ -111,6 +102,7 @@ function initializeMatchData() {
       win: true,
       kda: '12/4/8',
       score: 93,  // Final score
+      opScore: 87.5,  // OP Score (calculated by backend)
       scoreHistory: [85, 90, 92, 88, 93],
       position: 3,  // Out of 10 players
       pros: [
@@ -145,6 +137,7 @@ function initializeMatchData() {
       win: true,
       kda: '4/2/14',
       score: 82,
+      opScore: 76.3,
       scoreHistory: [78, 82, 80, 85, 82],
       position: 5,
       pros: [
@@ -178,6 +171,7 @@ function initializeMatchData() {
       win: false,
       kda: '8/7/3',
       score: 71,
+      opScore: 62.8,
       scoreHistory: [72, 70, 68, 73, 71],
       position: 8,
       pros: [
@@ -211,6 +205,7 @@ function initializeMatchData() {
       win: true,
       kda: '10/2/5',
       score: 92,
+      opScore: 84.2,
       scoreHistory: [88, 91, 89, 94, 92],
       position: 2,
       pros: [
@@ -244,6 +239,7 @@ function initializeMatchData() {
       win: true,
       kda: '9/3/11',
       score: 84,
+      opScore: 79.5,
       scoreHistory: [82, 85, 88, 86, 84],
       position: 4,
       pros: [
@@ -269,8 +265,36 @@ function initializeMatchData() {
         { player: 'Summoner9', champion: 'Morgana', role: 'Support', score: 69, position: 9, isYou: false, kills: 2, deaths: 12, assists: 10, csPerMin: 1.3, goldEarned: 7000, damageTaken: 24900, items: ['Support', 'Boots', 'AP', 'Utility'] },
         { player: 'Summoner10', champion: 'Xin Zhao', role: 'Jungle', score: 65, position: 10, isYou: false, kills: 5, deaths: 13, assists: 6, csPerMin: 5.1, goldEarned: 7300, damageTaken: 17400, items: ['Mythic', 'Boots', 'AD', 'Tank'] }
       ]
-    }
+    },
+    // Additional matches for score history (matches 6-20)
+    { matchId: 'match_6', date: '2024-01-10', champion: 'Jinx', role: 'Bot', win: false, kda: '7/8/4', opScore: 61.5 },
+    { matchId: 'match_7', date: '2024-01-09', champion: 'Yasuo', role: 'Mid', win: true, kda: '15/5/7', opScore: 82.3 },
+    { matchId: 'match_8', date: '2024-01-08', champion: 'Thresh', role: 'Support', win: true, kda: '2/3/18', opScore: 74.8 },
+    { matchId: 'match_9', date: '2024-01-07', champion: 'Vi', role: 'Jungle', win: false, kda: '6/11/9', opScore: 58.2 },
+    { matchId: 'match_10', date: '2024-01-06', champion: 'Corki', role: 'Mid', win: true, kda: '11/4/10', opScore: 81.6 },
+    { matchId: 'match_11', date: '2024-01-05', champion: 'Braum', role: 'Support', win: true, kda: '1/5/16', opScore: 71.9 },
+    { matchId: 'match_12', date: '2024-01-04', champion: 'Leona', role: 'Support', win: false, kda: '4/9/12', opScore: 65.4 },
+    { matchId: 'match_13', date: '2024-01-03', champion: 'Darius', role: 'Top', win: true, kda: '13/3/5', opScore: 83.1 },
+    { matchId: 'match_14', date: '2024-01-02', champion: 'Aatrox', role: 'Top', win: false, kda: '8/9/4', opScore: 64.7 },
+    { matchId: 'match_15', date: '2024-01-01', champion: 'Zed', role: 'Mid', win: true, kda: '16/4/3', opScore: 85.9 },
+    { matchId: 'match_16', date: '2023-12-31', champion: 'Katarina', role: 'Mid', win: false, kda: '9/10/6', opScore: 63.2 },
+    { matchId: 'match_17', date: '2023-12-30', champion: 'Draven', role: 'Bot', win: true, kda: '18/3/5', opScore: 89.2 },
+    { matchId: 'match_18', date: '2023-12-29', champion: 'Tristana', role: 'Bot', win: true, kda: '14/4/8', opScore: 80.5 },
+    { matchId: 'match_19', date: '2023-12-28', champion: 'Garen', role: 'Top', win: false, kda: '7/8/6', opScore: 61.8 },
+    { matchId: 'match_20', date: '2023-12-27', champion: 'Amumu', role: 'Jungle', win: true, kda: '8/6/17', opScore: 77.3 }
   ];
+}
+
+// Function to get XP value for quest difficulty
+function getXPForDifficulty(difficulty) {
+  const xpMap = {
+    'Easy': 10,
+    'Medium': 25,
+    'Hard': 50,
+    'Very Hard': 100,
+    'Extreme': 200
+  };
+  return xpMap[difficulty] || 10;
 }
 
 // Function to generate quests based on current rank
@@ -296,13 +320,17 @@ function generateQuests() {
         title: 'Foundation Builder',
         description: 'Win 10 ranked games to build a strong foundation',
         progress: '0/10',
-        difficulty: 'Easy'
+        difficulty: 'Easy',
+        xpReward: getXPForDifficulty('Easy'),
+        completed: false
       });
       quests.push({
         title: 'Consistency Master',
         description: 'Play 5 ranked games in a week without tilting',
         progress: '0/5',
-        difficulty: 'Medium'
+        difficulty: 'Medium',
+        xpReward: getXPForDifficulty('Medium'),
+        completed: false
       });
       break;
       
@@ -312,13 +340,17 @@ function generateQuests() {
         title: 'Gold Tier Climb',
         description: 'Reach 100 LP in your current division',
         progress: `${lp}/100`,
-        difficulty: 'Medium'
+        difficulty: 'Medium',
+        xpReward: getXPForDifficulty('Medium'),
+        completed: false
       });
       quests.push({
         title: 'Win Streak',
         description: 'Achieve a 3-game win streak in ranked',
         progress: '0/3',
-        difficulty: 'Hard'
+        difficulty: 'Hard',
+        xpReward: getXPForDifficulty('Hard'),
+        completed: false
       });
       break;
       
@@ -327,13 +359,17 @@ function generateQuests() {
         title: 'Plat Dominance',
         description: 'Win 15 ranked games while maintaining 55%+ win rate',
         progress: '0/15',
-        difficulty: 'Hard'
+        difficulty: 'Hard',
+        xpReward: getXPForDifficulty('Hard'),
+        completed: false
       });
       quests.push({
         title: 'Division Climb',
         description: 'Promote to the next division',
         progress: 'In Progress',
-        difficulty: 'Very Hard'
+        difficulty: 'Very Hard',
+        xpReward: getXPForDifficulty('Very Hard'),
+        completed: false
       });
       break;
       
@@ -343,13 +379,17 @@ function generateQuests() {
         title: 'Diamond Mastery',
         description: 'Maintain Diamond rank for 20 games',
         progress: '0/20',
-        difficulty: 'Very Hard'
+        difficulty: 'Very Hard',
+        xpReward: getXPForDifficulty('Very Hard'),
+        completed: false
       });
       quests.push({
         title: 'LP Collector',
         description: 'Gain 200 LP in ranked matches',
         progress: 'In Progress',
-        difficulty: 'Extreme'
+        difficulty: 'Extreme',
+        xpReward: getXPForDifficulty('Extreme'),
+        completed: false
       });
       break;
       
@@ -358,7 +398,9 @@ function generateQuests() {
         title: 'Elite Challenge',
         description: 'Win 5 ranked games while maintaining top-tier performance',
         progress: '0/5',
-        difficulty: 'Extreme'
+        difficulty: 'Extreme',
+        xpReward: getXPForDifficulty('Extreme'),
+        completed: false
       });
   }
   
@@ -367,10 +409,32 @@ function generateQuests() {
     title: 'Daily Grind',
     description: 'Complete 3 ranked games today',
     progress: '0/3',
-    difficulty: 'Easy'
+    difficulty: 'Easy',
+    xpReward: getXPForDifficulty('Easy'),
+    completed: false
   });
   
   leagueData.quests = quests;
+}
+
+// Function to calculate and update level based on XP
+function updatePlayerLevel() {
+  if (!leagueData.playerLevel) return;
+  
+  const totalXP = leagueData.playerLevel.totalXP;
+  let currentLevel = leagueData.playerLevel.level;
+  let xpForNextLevel = leagueData.playerLevel.xpForNextLevel;
+  
+  // Calculate level based on total XP (simple progression: 100 XP per level)
+  currentLevel = Math.floor(totalXP / 100) + 1;
+  xpForNextLevel = currentLevel * 100;
+  const xpIntoCurrentLevel = totalXP % 100;
+  const xpNeededToLevel = xpForNextLevel - totalXP;
+  
+  leagueData.playerLevel.level = currentLevel;
+  leagueData.playerLevel.xpForNextLevel = xpForNextLevel;
+  leagueData.playerLevel.xpIntoCurrentLevel = xpIntoCurrentLevel;
+  leagueData.playerLevel.xpNeededToLevel = xpNeededToLevel;
 }
 
 // Function to display quests
@@ -380,9 +444,39 @@ function displayQuests() {
     return;
   }
   
-  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8 mb-6">';
-  html += `<h2 class="text-2xl font-bold text-gray-100 mb-2">Your Current Rank: ${leagueData.currentRank.tier} ${leagueData.currentRank.division}</h2>`;
-  html += `<p class="text-sky-400 text-lg font-semibold">LP: ${leagueData.currentRank.lp}</p>`;
+  // Update level calculations
+  updatePlayerLevel();
+  
+  let html = '<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">';
+  
+  // Rank Display
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += `<h2 class="text-xl font-bold text-gray-100 mb-2">Current Rank</h2>`;
+  html += `<p class="text-sky-400 text-2xl font-semibold">${leagueData.currentRank.tier} ${leagueData.currentRank.division}</p>`;
+  html += `<p class="text-gray-400 text-sm mt-1">LP: ${leagueData.currentRank.lp}</p>`;
+  html += '</div>';
+  
+  // Level Display
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += `<h2 class="text-xl font-bold text-gray-100 mb-2">Player Level</h2>`;
+  html += `<p class="text-sky-400 text-3xl font-bold">Level ${leagueData.playerLevel.level}</p>`;
+  html += `<p class="text-gray-400 text-sm mt-2">${leagueData.playerLevel.totalXP} Total XP</p>`;
+  
+  // XP Progress Bar
+  const progressPercentage = (leagueData.playerLevel.xpIntoCurrentLevel / 100) * 100;
+  html += '<div class="mt-3 bg-slate-700 rounded-full h-3 overflow-hidden">';
+  html += `<div class="bg-gradient-to-r from-sky-500 to-sky-400 h-full transition-all duration-300" style="width: ${progressPercentage}%"></div>`;
+  html += '</div>';
+  html += `<p class="text-gray-400 text-xs mt-1">${leagueData.playerLevel.xpNeededToLevel} XP to next level</p>`;
+  html += '</div>';
+  
+  // Total XP & Level Info
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += `<h2 class="text-xl font-bold text-gray-100 mb-2">Statistics</h2>`;
+  html += `<p class="text-emerald-400 text-lg font-semibold">${leagueData.playerLevel.totalXP} Total XP</p>`;
+  html += `<p class="text-gray-400 text-sm mt-2">Completed Quests: ${leagueData.quests.filter(q => q.completed).length}/${leagueData.quests.length}</p>`;
+  html += '</div>';
+  
   html += '</div>';
   
   html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Active Quests</h3>';
@@ -404,9 +498,12 @@ function displayQuests() {
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 hover:border-sky-500 transition-all duration-200">';
       html += `<h4 class="text-lg font-semibold text-gray-100 mb-2">${quest.title}</h4>`;
       html += `<p class="text-gray-400 text-sm mb-3">${quest.description}</p>`;
-      html += '<div class="flex justify-between items-center">';
+      html += '<div class="flex justify-between items-center flex-wrap gap-2">';
       html += `<span class="text-gray-400 text-sm font-medium">Progress: ${quest.progress}</span>`;
+      html += '<div class="flex items-center gap-3">';
       html += `<span class="px-3 py-1 text-xs font-bold uppercase rounded-full border ${colorClass}">${quest.difficulty}</span>`;
+      html += `<span class="text-sky-400 text-sm font-bold">+${quest.xpReward} XP</span>`;
+      html += '</div>';
       html += '</div>';
       html += '</div>';
     });
@@ -434,7 +531,7 @@ function displayChampRoleOverview() {
     const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
     
     html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
-    html += '<div class="flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
+    html += '<div class="match-header flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
     html += `<div class="px-3 py-1 text-xs font-bold uppercase tracking-wide border rounded ${resultBg}">${winText}</div>`;
     html += '<div class="flex-1">';
     html += `<div class="text-xs text-gray-500">${match.date}</div>`;
@@ -537,7 +634,7 @@ function displayChampRoleOverview() {
   $('#dynamicContent').html(html);
   
   // Setup click handlers for expanding/collapsing matches
-  $('[data-match-id] > div').off('click').on('click', function() {
+  $('.match-header').off('click').on('click', function() {
     const matchId = $(this).parent().data('match-id');
     const expanded = $(`#expanded-${matchId}`);
     const icon = $(this).find('div').last();
@@ -642,6 +739,177 @@ function createScoreChart(canvas, scoreData) {
   });
 }
 
+// Function to display OP Score history
+function displayScore() {
+  if (!leagueData.matches || leagueData.matches.length === 0) {
+    $('#dynamicContent').html('<p class="text-gray-400">No match data available. Please check API connection.</p>');
+    return;
+  }
+  
+  // Get last 20 matches
+  const recentMatches = leagueData.matches
+    .filter(m => m.opScore) // Only matches with OP scores
+    .slice(0, 20)
+    .reverse(); // Most recent first
+  
+  if (recentMatches.length === 0) {
+    $('#dynamicContent').html('<p class="text-gray-400">No OP score data available.</p>');
+    return;
+  }
+  
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8">';
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-6">OP Score History (Last 20 Matches)</h2>';
+  html += '<div class="bg-slate-900 rounded-lg p-6" style="height: 500px; position: relative;">';
+  html += '<canvas id="opScoreChart" style="max-height: 100%;"></canvas>';
+  html += '</div>';
+  html += '</div>';
+
+        $('#dynamicContent').html(html);
+  
+  // Create Chart.js graph
+  setTimeout(() => {
+    const canvas = document.getElementById('opScoreChart');
+    if (!canvas) {
+      console.error('Canvas element not found');
+      return;
+    }
+    
+    console.log('Canvas found, creating chart with', recentMatches.length, 'matches');
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Destroy previous chart instance if it exists
+    if (window.opScoreChartInstance) {
+      window.opScoreChartInstance.destroy();
+    }
+    
+    window.opScoreChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: recentMatches.map((m, i) => `Match ${recentMatches.length - i}`),
+        datasets: [{
+          label: 'OP Score',
+          data: recentMatches.map(m => m.opScore),
+          borderColor: '#0EA5E9',
+          backgroundColor: 'rgba(14, 165, 233, 0.1)',
+          borderWidth: 3,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBackgroundColor: '#0EA5E9',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onHover: function(event, elements) {
+          event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+        },
+        plugins: {
+          legend: { 
+            display: false 
+          },
+          tooltip: {
+            enabled: true,
+            intersect: false,
+            external: false,
+            animation: {
+              duration: 200
+            },
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 12,
+            titleColor: '#E2E4E9',
+            bodyColor: '#E2E4E9',
+            displayColors: false,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            },
+            callbacks: {
+              title: function(context) {
+                if (!context || !context[0]) return '';
+                const index = context[0].dataIndex;
+                const match = recentMatches[index];
+                if (!match) return 'Match Data';
+                const winText = match.win ? 'Victory' : 'Defeat';
+                return `${match.date} - ${winText}`;
+              },
+              label: function(context) {
+                if (!context || !context[0]) return [];
+                const index = context[0].dataIndex;
+                const match = recentMatches[index];
+                if (!match) return ['No data'];
+                const prefix = match.win ? '✓' : '✗';
+                return [
+                  `${prefix} ${match.champion} (${match.role})`,
+                  `OP Score: ${match.opScore}`,
+                  `KDA: ${match.kda}`
+                ];
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: '#334155'
+            },
+            ticks: {
+              color: '#94A3B8'
+            },
+            title: {
+              display: true,
+              text: 'OP Score',
+              color: '#94A3B8',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          x: {
+            grid: {
+              color: '#334155'
+            },
+            ticks: {
+              color: '#94A3B8',
+              maxRotation: 45,
+              minRotation: 45
+            }
+          }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      }
+    });
+    
+    console.log('Chart created with', recentMatches.length, 'matches');
+    console.log('Tooltip enabled:', window.opScoreChartInstance.options.plugins.tooltip.enabled);
+    console.log('First match data:', recentMatches[0]);
+    
+    // Test tooltip manually
+    setTimeout(() => {
+      const event = new MouseEvent('mousemove', {
+        clientX: canvas.offsetLeft + 50,
+        clientY: canvas.offsetTop + 50
+      });
+      canvas.dispatchEvent(event);
+      console.log('Test event dispatched - should trigger tooltip if working');
+    }, 500);
+  }, 100);
+}
+
 // Function to display overview information
 function displayOverview() {
   let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
@@ -691,18 +959,23 @@ $('.tab').on('click', function() {
     fetchLeagueData().then(() => {
       displayOverview();
     });
+  } else if (tabId === 2) {
+    // Score tab
+    fetchLeagueData().then(() => {
+      displayScore();
+    });
   } else if (tabId === 3) {
-    // Champ/Role Overview tab
+    // Match History tab
     fetchLeagueData().then(() => {
       displayChampRoleOverview();
     });
-  } else if (tabId === 5) {
+  } else if (tabId === 4) {
     // Quests tab
     fetchLeagueData().then(() => {
       displayQuests();
     });
   } else {
-    // Other tabs (Score, Champions)
+    // Other tabs
     $('#dynamicContent').html('<b> Information on Tab ' + tabId + ' ... </b>');
   }
 });
