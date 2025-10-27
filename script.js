@@ -515,10 +515,15 @@ function displayQuests() {
 
 // Function to display champ/role overview with matches
 function displayChampRoleOverview() {
+  console.log('displayChampRoleOverview called');
+  console.log('leagueData.matches:', leagueData.matches);
+  
   if (!leagueData.matches || leagueData.matches.length === 0) {
     $('#dynamicContent').html('<p class="text-gray-400">No match data available. Please check API connection.</p>');
     return;
   }
+  
+  console.log('Rendering match history with', leagueData.matches.length, 'matches');
   
   let html = '<h2 class="text-2xl font-bold text-gray-100 mb-6">Match History by Champion & Role</h2>';
   html += '<div class="space-y-3">';
@@ -539,26 +544,38 @@ function displayChampRoleOverview() {
     html += `<div class="text-xs text-gray-400">${match.role}</div>`;
     html += '</div>';
     html += `<div class="text-sm text-gray-400 font-medium px-4">${match.kda}</div>`;
-    html += `<div class="text-sky-400 font-bold">#${match.position}/10</div>`;
+    
+    // Only show position if it exists (detailed matches)
+    if (match.position) {
+      html += `<div class="text-sky-400 font-bold">#${match.position}/10</div>`;
+    } else {
+      html += `<div class="text-sky-400 font-bold">-</div>`;
+    }
+    
     html += '<div class="text-gray-500">▼</div>';
     html += '</div>';
     
+    // Only render detailed sections if match has detailed data
+    const hasDetailedData = match.playerRoster && match.scoreHistory && match.pros && match.cons;
+    
     html += `<div id="expanded-${match.matchId}" style="display: none;" class="bg-slate-900 p-6">`;
-    html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
     
-    // Score graph
-    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
-    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Score Over Time</h4>';
-    html += `<canvas id="scoreChart-${index}" width="400" height="150"></canvas>`;
-    html += '</div>';
-    html += '</div>'; // grid
-    
-    // Match Leaderboard
-    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
-    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Match Leaderboard</h4>';
-    html += '<div class="space-y-2">';
-    
-    match.playerRoster.forEach((player, idx) => {
+    if (hasDetailedData) {
+      html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
+      
+      // Score graph
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
+      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Score Over Time</h4>';
+      html += `<canvas id="scoreChart-${index}" width="400" height="150"></canvas>`;
+      html += '</div>';
+      html += '</div>'; // grid
+      
+      // Match Leaderboard
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
+      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Match Leaderboard</h4>';
+      html += '<div class="space-y-2">';
+      
+      match.playerRoster.forEach((player, idx) => {
       const playerId = player.player.replace(/\s+/g, '_') + '_' + idx;
       const youClass = player.isYou ? 'bg-sky-500/10 border-sky-500' : 'bg-slate-700 border-slate-700';
       const topThreeBgs = {
@@ -590,41 +607,46 @@ function displayChampRoleOverview() {
       html += '</div></div>';
     });
     
-    html += '</div></div>'; // leaderboard close, space-y-2 close
+      html += '</div></div>'; // leaderboard close, space-y-2 close
+      
+      // Pros and Cons Section
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
+      html += '<div class="flex items-center justify-between cursor-pointer hover:text-sky-400 transition-colors match-analysis-toggle">';
+      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Match Analysis</h4>';
+      html += '<div class="match-analysis-arrow">▼</div>';
+      html += '</div>';
+      html += '<div class="match-analysis-content grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" style="display: none;">';
+      
+      // Pros
+      html += '<div>';
+      html += '<h5 class="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">';
+      html += '<span>✅</span> Pros';
+      html += '</h5>';
+      html += '<ul class="space-y-1">';
+      match.pros.forEach(pro => {
+        html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-emerald-400">•</span><span>${pro}</span></li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+      
+      // Cons
+      html += '<div>';
+      html += '<h5 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">';
+      html += '<span>❌</span> Cons';
+      html += '</h5>';
+      html += '<ul class="space-y-1">';
+      match.cons.forEach(con => {
+        html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-red-400">•</span><span>${con}</span></li>`;
+      });
+      html += '</ul>';
+      html += '</div>';
+      
+      html += '</div></div>'; // grid and section
+    } else {
+      // Show message for matches without detailed data
+      html += '<div class="text-gray-400 text-center py-8">Detailed match data not available for this match.</div>';
+    }
     
-    // Pros and Cons Section
-    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
-    html += '<div class="flex items-center justify-between cursor-pointer hover:text-sky-400 transition-colors match-analysis-toggle">';
-    html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Match Analysis</h4>';
-    html += '<div class="match-analysis-arrow">▼</div>';
-    html += '</div>';
-    html += '<div class="match-analysis-content grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" style="display: none;">';
-    
-    // Pros
-    html += '<div>';
-    html += '<h5 class="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">';
-    html += '<span>✅</span> Pros';
-    html += '</h5>';
-    html += '<ul class="space-y-1">';
-    match.pros.forEach(pro => {
-      html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-emerald-400">•</span><span>${pro}</span></li>`;
-    });
-    html += '</ul>';
-    html += '</div>';
-    
-    // Cons
-    html += '<div>';
-    html += '<h5 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">';
-    html += '<span>❌</span> Cons';
-    html += '</h5>';
-    html += '<ul class="space-y-1">';
-    match.cons.forEach(con => {
-      html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-red-400">•</span><span>${con}</span></li>`;
-    });
-    html += '</ul>';
-    html += '</div>';
-    
-    html += '</div></div>'; // grid and section
     html += '</div>'; // expanded
     html += '</div>'; // match-card
   });
@@ -646,11 +668,13 @@ function displayChampRoleOverview() {
       expanded.slideDown();
       icon.text('▲');
       
-      // Create score graph if not already created
+      // Create score graph if not already created and match has scoreHistory
       const canvas = expanded.find('canvas')[0];
       if (canvas) {
         const match = leagueData.matches.find(m => m.matchId === matchId);
-        createScoreChart(canvas, match.scoreHistory);
+        if (match && match.scoreHistory) {
+          createScoreChart(canvas, match.scoreHistory);
+        }
       }
     }
   });
@@ -947,42 +971,54 @@ function displayOverview() {
   $('#dynamicContent').html(html);
 }
 
-// Handler for tab clicks
-$('.tab').on('click', function() {
-  $('.tab').removeClass('border-sky-500 text-sky-400').addClass('border-transparent text-gray-500');
-  $(this).addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
-  const tabId = $(this).data('tab');
+// Handler for tab clicks - moved inside document ready to ensure proper initialization
+function setupTabHandlers() {
+  // Remove any existing handlers to prevent duplicates
+  $('.tab').off('click');
+  
+  $('.tab').on('click', function() {
+    $('.tab').removeClass('border-sky-500 text-sky-400').addClass('border-transparent text-gray-500');
+    $(this).addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+    const tabId = parseInt($(this).data('tab'));
+    
+    console.log('Tab clicked, tabId:', tabId);
 
-  // Handle different tabs
-  if (tabId === 1) {
-    // Overview tab
-    fetchLeagueData().then(() => {
-      displayOverview();
-    });
-  } else if (tabId === 2) {
-    // Score tab
-    fetchLeagueData().then(() => {
-      displayScore();
-    });
-  } else if (tabId === 3) {
-    // Match History tab
-    fetchLeagueData().then(() => {
-      displayChampRoleOverview();
-    });
-  } else if (tabId === 4) {
-    // Quests tab
-    fetchLeagueData().then(() => {
-      displayQuests();
-    });
-  } else {
-    // Other tabs
-    $('#dynamicContent').html('<b> Information on Tab ' + tabId + ' ... </b>');
-  }
-});
+    // Handle different tabs
+    if (tabId === 1) {
+      // Overview tab
+      fetchLeagueData().then(() => {
+        displayOverview();
+      });
+    } else if (tabId === 2) {
+      // Score tab
+      fetchLeagueData().then(() => {
+        displayScore();
+      });
+    } else if (tabId === 3) {
+      // Match History tab
+      console.log('Match History tab clicked, loading data...');
+      fetchLeagueData().then(() => {
+        console.log('Data fetched, displaying match history');
+        displayChampRoleOverview();
+      });
+    } else if (tabId === 4) {
+      // Quests tab
+      fetchLeagueData().then(() => {
+        displayQuests();
+      });
+    } else {
+      // Other tabs
+      $('#dynamicContent').html('<b> Information on Tab ' + tabId + ' ... </b>');
+    }
+  });
+}
 
 // On document ready, initialize League data and load default tab content
 $(document).ready(function() {
   console.log("On Load");
+  
+  // Setup tab click handlers
+  setupTabHandlers();
   
   // Set first tab as active
   $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
