@@ -503,3 +503,391 @@ body {
   color: #0A1428;
   font-weight: 700;
 }
+
+/* ===================================
+   Match Overview Styles
+   =================================== */
+
+.match-overview-container {
+  padding: 20px;
+}
+
+.match-overview-container h2 {
+  color: var(--lol-gold-light);
+  margin-bottom: 25px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 1.8em;
+  text-align: center;
+}
+
+.match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.match-card {
+  background: linear-gradient(135deg, #1E2328 0%, #1A1F28 100%);
+  border: 2px solid var(--lol-card-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.match-card.victory {
+  border-left: 4px solid #28a745;
+}
+
+.match-card.defeat {
+  border-left: 4px solid #dc3545;
+}
+
+.match-card-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.match-card-header:hover {
+  background: rgba(201, 170, 113, 0.05);
+}
+
+.match-result {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.match-result.victory {
+  background: rgba(40, 167, 69, 0.2);
+  color: #28a745;
+  border: 2px solid #28a745;
+}
+
+.match-result.defeat {
+  background: rgba(220, 53, 69, 0.2);
+  color: #dc3545;
+  border: 2px solid #dc3545;
+}
+
+.match-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.match-date {
+  color: var(--lol-text-dark);
+  font-size: 0.9em;
+}
+
+.match-champion {
+  color: var(--lol-gold-light);
+  font-size: 1.2em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.match-role {
+  color: var(--lol-text);
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.match-kda {
+  color: var(--lol-text);
+  font-weight: 600;
+  font-size: 1.1em;
+  padding: 0 15px;
+  border-left: 1px solid var(--lol-card-border);
+  border-right: 1px solid var(--lol-card-border);
+}
+
+.match-position {
+  color: var(--lol-gold);
+  font-weight: 700;
+  font-size: 1.2em;
+  min-width: 60px;
+  text-align: center;
+}
+
+.expand-icon {
+  color: var(--lol-gold);
+  font-size: 1.2em;
+  user-select: none;
+  transition: transform 0.3s ease;
+}
+
+/* Expanded match details */
+.match-expanded {
+  border-top: 1px solid var(--lol-card-border);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 25px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.match-detailed-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.score-graph-container,
+.position-comparison {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--lol-card-border);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.score-graph-container h4,
+.position-comparison h4 {
+  color: var(--lol-gold-light);
+  margin-top: 0;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 1.1em;
+}
+
+.score-graph-container canvas {
+  max-height: 150px;
+}
+
+.position-comparison p {
+  color: var(--lol-text);
+  margin-bottom: 15px;
+}
+
+.position-highlight {
+  color: var(--lol-gold);
+  font-weight: 700;
+}
+
+.position-bar {
+  background: var(--lol-card-border);
+  height: 30px;
+  border-radius: 15px;
+  overflow: hidden;
+  position: relative;
+}
+
+.position-fill {
+  background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+  height: 100%;
+  transition: width 0.5s ease;
+}
+
+/* Match Leaderboard */
+.match-leaderboard {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--lol-card-border);
+  border-radius: 8px;
+  padding: 20px;
+  grid-column: 1 / -1;  /* Spans full width */
+}
+
+.match-leaderboard h4 {
+  color: var(--lol-gold-light);
+  margin-top: 0;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 1.1em;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 50px 1fr 150px 100px 80px 40px;
+  gap: 15px;
+  align-items: center;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--lol-card-border);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.leaderboard-row:hover {
+  background: rgba(201, 170, 113, 0.1);
+  border-color: var(--lol-gold);
+}
+
+.leaderboard-row.you {
+  background: rgba(201, 170, 113, 0.15);
+  border: 2px solid var(--lol-gold);
+  box-shadow: 0 0 15px rgba(201, 170, 113, 0.3);
+}
+
+.leaderboard-position {
+  color: var(--lol-gold);
+  font-weight: 700;
+  font-size: 1.1em;
+  text-align: center;
+}
+
+.leaderboard-player {
+  color: var(--lol-text);
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+.leaderboard-row.you .leaderboard-player {
+  color: var(--lol-gold-light);
+  font-weight: 700;
+}
+
+.leaderboard-champion {
+  color: var(--lol-text);
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leaderboard-role {
+  color: var(--lol-text-dark);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.leaderboard-score {
+  color: var(--lol-gold);
+  font-weight: 700;
+  font-size: 1.05em;
+  text-align: right;
+}
+
+/* Top 3 podium styling */
+.leaderboard-row:nth-child(1) {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, transparent 100%);
+  border-color: #FFD700;
+}
+
+.leaderboard-row:nth-child(2) {
+  background: linear-gradient(135deg, rgba(192, 192, 192, 0.2) 0%, transparent 100%);
+  border-color: #C0C0C0;
+}
+
+.leaderboard-row:nth-child(3) {
+  background: linear-gradient(135deg, rgba(205, 127, 50, 0.2) 0%, transparent 100%);
+  border-color: #CD7F32;
+}
+
+.leaderboard-stats-icon {
+  font-size: 1.2em;
+  cursor: pointer;
+}
+
+/* Player Detail Stats */
+.player-details {
+  grid-column: 1 / -1;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--lol-card-border);
+  border-radius: 6px;
+  padding: 20px;
+  margin-top: 10px;
+  animation: slideDown 0.3s ease;
+}
+
+.player-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+}
+
+.stat-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--lol-card-border);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.stat-box.items-box {
+  grid-column: 1 / -1;  /* Full width */
+}
+
+.stat-label {
+  color: var(--lol-text-dark);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  color: var(--lol-gold);
+  font-size: 1.3em;
+  font-weight: 700;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.stat-box.items-box .stat-value {
+  font-size: 1em;
+}
+
+/* Responsive for match details */
+@media (max-width: 768px) {
+  .match-card-header {
+    flex-wrap: wrap;
+    padding: 15px;
+  }
+  
+  .match-champion {
+    font-size: 1em;
+  }
+  
+  .match-detailed-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .leaderboard-row {
+    grid-template-columns: 40px 1fr;
+    gap: 10px;
+  }
+  
+  .leaderboard-player,
+  .leaderboard-champion,
+  .leaderboard-role,
+  .leaderboard-score {
+    font-size: 0.85em;
+  }
+  
+  .leaderboard-position {
+    font-size: 0.95em;
+  }
+}
