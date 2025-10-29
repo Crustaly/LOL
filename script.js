@@ -525,13 +525,14 @@ function displayChampRoleOverview() {
     const winClass = match.win ? 'victory' : 'defeat';
     const winText = match.win ? 'Victory' : 'Defeat';
     const winImage = match.win ? 'Images/Victory.png' : 'Images/Defeat.png';
+    const imageSize = match.win ? 'h-[512px]' : 'h-20';
     
     const borderColor = match.win ? 'border-emerald-500' : 'border-red-500';
     const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
     
     html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
     html += '<div class="match-header flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
-    html += `<div class="w-16 px-3 py-1 flex items-center justify-center"><img src="${winImage}" alt="${winText}" class="h-12 w-auto"></div>`;
+    html += `<div class="h-12 w-16 flex items-center justify-center overflow-visible"><img src="${winImage}" alt="${winText}" class="${imageSize} w-auto object-contain"></div>`;
     html += '<div class="flex-1">';
     html += `<div class="text-xs text-gray-500">${match.date}</div>`;
     html += `<div class="text-base font-semibold text-gray-100">${match.champion}</div>`;
