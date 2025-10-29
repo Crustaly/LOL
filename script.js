@@ -447,14 +447,7 @@ function displayQuests() {
   // Update level calculations
   updatePlayerLevel();
   
-  let html = '<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">';
-  
-  // Rank Display
-  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
-  html += `<h2 class="text-xl font-bold text-gray-100 mb-2">Current Rank</h2>`;
-  html += `<p class="text-sky-400 text-2xl font-semibold">${leagueData.currentRank.tier} ${leagueData.currentRank.division}</p>`;
-  html += `<p class="text-gray-400 text-sm mt-1">LP: ${leagueData.currentRank.lp}</p>`;
-  html += '</div>';
+  let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
   
   // Level Display
   html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
@@ -531,13 +524,14 @@ function displayChampRoleOverview() {
   leagueData.matches.forEach((match, index) => {
     const winClass = match.win ? 'victory' : 'defeat';
     const winText = match.win ? 'Victory' : 'Defeat';
+    const winImage = match.win ? 'Images/Victory.png' : 'Images/Defeat.png';
     
     const borderColor = match.win ? 'border-emerald-500' : 'border-red-500';
     const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
     
     html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
     html += '<div class="match-header flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
-    html += `<div class="px-3 py-1 text-xs font-bold uppercase tracking-wide border rounded ${resultBg}">${winText}</div>`;
+    html += `<div class="w-16 px-3 py-1 flex items-center justify-center"><img src="${winImage}" alt="${winText}" class="h-12 w-auto"></div>`;
     html += '<div class="flex-1">';
     html += `<div class="text-xs text-gray-500">${match.date}</div>`;
     html += `<div class="text-base font-semibold text-gray-100">${match.champion}</div>`;
@@ -566,7 +560,7 @@ function displayChampRoleOverview() {
       // OP Score bar graph
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
       html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">OP Score</h4>';
-      html += `<canvas id="opScoreChart-${index}" width="400" height="150"></canvas>`;
+      html += `<canvas id="opScoreChart-${index}" width="250" height="150"></canvas>`;
       html += '</div>';
       html += '</div>'; // grid
       
@@ -732,7 +726,8 @@ function createOpScoreBarChart(canvas, opScore) {
         data: [opScore],
         backgroundColor: '#0EA5E9',
         borderColor: '#0EA5E9',
-        borderWidth: 2
+        borderWidth: 2,
+        barThickness: 60
       }]
     },
     options: {
@@ -949,9 +944,63 @@ function displayScore() {
   }, 100);
 }
 
+// Function to get rank image path based on tier
+// This function maps rank tiers to their corresponding image files
+function getRankImagePath(tier) {
+  // Normalize tier name to lowercase for consistent mapping
+  const tierLower = tier.toLowerCase();
+  
+  // Map each tier to its image filename
+  // Uses the actual filenames in the Images directory
+  const rankImageMap = {
+    'iron': 'Images/iron.png',
+    'bronze': 'Images/bronze.png',
+    'silver': 'Images/silver.png',
+    'gold': 'Images/gold.png',
+    'platinum': 'Images/platnum.png',  // Note: filename is spelled "platnum"
+    'platnum': 'Images/platnum.png',   // Also handle the misspelling
+    'emerald': 'Images/emerald.png',
+    'diamond': 'Images/diamond.png',
+    'master': 'Images/master.png',
+    'grandmaster': 'Images/Grandmaster.png',  // Capitalized in filename
+    'challenger': 'Images/Challenger.png'      // Capitalized in filename
+  };
+  
+  // Return the image path, or null if tier not found
+  return rankImageMap[tierLower] || null;
+}
+
+// Helper function to extract tier from a rank string (e.g., "Diamond II" -> "Diamond")
+function extractTierFromRank(rankString) {
+  if (!rankString) return null;
+  // Split by space and take the first part (the tier)
+  const parts = rankString.trim().split(' ');
+  return parts[0] || null;
+}
+
 // Function to display overview information
 function displayOverview() {
-  let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">';
+  let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
+  
+  // Current Rank Section (if available)
+  if (leagueData.currentRank) {
+    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+    html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Current Rank</h3>';
+    html += '<div class="flex items-center gap-4">';
+    // Rank image
+    const currentTier = leagueData.currentRank.tier;
+    const rankImagePath = getRankImagePath(currentTier);
+    if (rankImagePath) {
+      html += `<img src="${rankImagePath}" alt="${currentTier} rank" class="w-16 h-16 object-contain" onerror="this.style.display='none';">`;
+    }
+    // Rank text
+    html += '<div>';
+    html += `<p class="text-sky-400 text-2xl font-semibold">${leagueData.currentRank.tier} ${leagueData.currentRank.division}</p>`;
+    html += `<p class="text-gray-400 text-sm mt-1">LP: ${leagueData.currentRank.lp}</p>`;
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+  }
   
   // Past Season Ranks Section
   html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
@@ -963,7 +1012,19 @@ function displayOverview() {
   html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Rank</th>';
   html += '</tr></thead><tbody>';
   leagueData.pastSeasonRanks.forEach(s => {
-    html += `<tr class="hover:bg-slate-800/50 transition-colors"><td class="p-3 text-gray-300 border-b border-slate-700">${s.season}</td><td class="p-3 text-gray-300 border-b border-slate-700">${s.rank}</td></tr>`;
+    const pastTier = extractTierFromRank(s.rank);
+    const pastRankImagePath = pastTier ? getRankImagePath(pastTier) : null;
+    html += '<tr class="hover:bg-slate-800/50 transition-colors">';
+    html += `<td class="p-3 text-gray-300 border-b border-slate-700">${s.season}</td>`;
+    html += '<td class="p-3 text-gray-300 border-b border-slate-700">';
+    html += '<div class="flex items-center gap-2">';
+    if (pastRankImagePath) {
+      html += `<img src="${pastRankImagePath}" alt="${s.rank} rank" class="w-8 h-8 object-contain" onerror="this.style.display='none';">`;
+    }
+    html += `<span>${s.rank}</span>`;
+    html += '</div>';
+    html += '</td>';
+    html += '</tr>';
   });
   html += '</tbody></table></div></div>';
   
@@ -1028,9 +1089,95 @@ function setupTabHandlers() {
   });
 }
 
+// Banner cycling functionality
+// This function automatically cycles through different banner images with smooth crossfade
+function initBannerCycling() {
+  // Array of banner image paths to cycle through
+  // These include the original banner and the 4 new splash art images
+  const bannerImages = [
+    'Images/banner.jpg',      // Current banner (fox-like character)
+    'Images/splashart1.jpg',  // Splash art 1
+    'Images/splashart2.jpg',  // Splash art 2
+    'Images/splashart3.jpg',  // Splash art 3
+    'Images/splashart4.jpg'   // Splash art 4
+  ];
+  
+  let currentBannerIndex = 0;
+  const bannerElement1 = document.getElementById('bannerImage1');
+  const bannerElement2 = document.getElementById('bannerImage2');
+  
+  // Check if banner elements exist
+  if (!bannerElement1 || !bannerElement2) {
+    console.warn('Banner elements not found');
+    return;
+  }
+  
+  // Track which image is currently visible (1 or 2)
+  let currentVisible = 1;
+  
+  // Set initial state: image 1 visible, image 2 hidden
+  bannerElement1.style.opacity = '1';
+  bannerElement1.style.zIndex = '2';
+  bannerElement2.style.opacity = '0';
+  bannerElement2.style.zIndex = '1';
+  
+  // Function to change to the next banner with crossfade
+  function changeBanner() {
+    // Get the next image index
+    currentBannerIndex = (currentBannerIndex + 1) % bannerImages.length;
+    const nextImageSrc = bannerImages[currentBannerIndex];
+    
+    // Determine which image to update (the one that's currently hidden)
+    let imageToUpdate, imageToShow, imageToHide;
+    
+    if (currentVisible === 1) {
+      // Image 1 is visible, so update image 2 and fade it in
+      imageToUpdate = bannerElement2;
+      imageToShow = bannerElement2;
+      imageToHide = bannerElement1;
+      currentVisible = 2;
+      // Bring image 2 to front
+      bannerElement2.style.zIndex = '2';
+      bannerElement1.style.zIndex = '1';
+    } else {
+      // Image 2 is visible, so update image 1 and fade it in
+      imageToUpdate = bannerElement1;
+      imageToShow = bannerElement1;
+      imageToHide = bannerElement2;
+      currentVisible = 1;
+      // Bring image 1 to front
+      bannerElement1.style.zIndex = '2';
+      bannerElement2.style.zIndex = '1';
+    }
+    
+    // Set the new image source (this happens instantly while opacity is 0)
+    imageToUpdate.src = nextImageSrc;
+    
+    // Crossfade: fade out the visible image while fading in the new one
+    // This creates a smooth transition where one image fades into the next
+    imageToHide.style.opacity = '0';
+    imageToShow.style.opacity = '1';
+  }
+  
+  // Start cycling: change banner every 10 seconds (10000 milliseconds)
+  // You can adjust this interval by changing the number below
+  const cycleInterval = setInterval(changeBanner, 10000);
+  
+  // Preload all banner images for smoother transitions
+  bannerImages.forEach(imagePath => {
+    const img = new Image();
+    img.src = imagePath;
+  });
+  
+  console.log('Banner cycling initialized with', bannerImages.length, 'images (crossfade enabled)');
+}
+
 // On document ready, initialize League data and load default tab content
 $(document).ready(function() {
   console.log("On Load");
+  
+  // Initialize banner cycling
+  initBannerCycling();
   
   // Setup tab click handlers
   setupTabHandlers();

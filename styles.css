@@ -12,6 +12,11 @@ body {
   margin: 0;
   padding: 0;
   background-color:#0e141b ;
+  background-image: url('Images/Background Art.jpg');
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
+  background-attachment: fixed;
 }
 .jumbotron {
   background: #01162d;
@@ -19,14 +24,15 @@ body {
   text-align: center;
   padding: 40px 20px;
 }
-.tabs {
+/* Legacy tab styles - scoped to avoid conflicts with navigation */
+.legacy-tabs {
   display: flex;
   justify-content: center;
   background: #f8f9fa;
   border-bottom: 2px solid #ddd;
   flex-wrap: wrap;
 }
-.tab {
+.legacy-tab {
   padding: 12px 20px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -35,7 +41,7 @@ body {
   border-radius: 5px;
   color: white;
 }
-.tab:hover {
+.legacy-tab:hover {
   color: #0F1419; /* text color: blackish */
   border-color: #C9AA71; /* gold border */
   box-shadow: 0 0 20px rgba(201, 170, 113, 0.3); /* gold glow */
@@ -43,12 +49,7 @@ body {
   background: #fff8e1; /* optional soft gold background */
   transition: all 0.2s ease;
 }
-
-
-
-
-
-.tab.active {
+.legacy-tab.active {
   background: #007BFF;
   color: white;
   border-color: #007BFF;

@@ -4,17 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>League of Legends Stats Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js" defer></script>
   </head>
-  <body class="bg-slate-900 text-gray-100 min-h-screen">
+  <body class="text-gray-100 min-h-screen">
 
     <!-- Header -->
     <header class="border-b border-slate-700 overflow-hidden">
-      <div class="w-full h-36 md:h-48 overflow-hidden">
-        <img src="banner.jpg" alt="League of Legends Banner" class="w-full h-full object-cover object-center" style="display: block;">
+      <div class="w-full h-36 md:h-48 overflow-hidden relative">
+        <img id="bannerImage1" src="Images/banner.jpg" alt="League of Legends Banner" class="w-full h-full object-cover transition-opacity absolute inset-0" style="object-position: center 20%; z-index: 1; transition-duration: 3000ms;">
+        <img id="bannerImage2" src="Images/banner.jpg" alt="League of Legends Banner" class="w-full h-full object-cover transition-opacity absolute inset-0" style="object-position: center 20%; z-index: 2; opacity: 0; transition-duration: 3000ms;">
       </div>
     </header>
 
