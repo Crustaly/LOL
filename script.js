@@ -563,10 +563,10 @@ function displayChampRoleOverview() {
     if (hasDetailedData) {
       html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
       
-      // Score graph
+      // OP Score bar graph
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
-      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Score Over Time</h4>';
-      html += `<canvas id="scoreChart-${index}" width="400" height="150"></canvas>`;
+      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">OP Score</h4>';
+      html += `<canvas id="opScoreChart-${index}" width="400" height="150"></canvas>`;
       html += '</div>';
       html += '</div>'; // grid
       
@@ -668,12 +668,12 @@ function displayChampRoleOverview() {
       expanded.slideDown();
       icon.text('▲');
       
-      // Create score graph if not already created and match has scoreHistory
+      // Create OP Score bar graph if not already created and match has opScore
       const canvas = expanded.find('canvas')[0];
       if (canvas) {
         const match = leagueData.matches.find(m => m.matchId === matchId);
-        if (match && match.scoreHistory) {
-          createScoreChart(canvas, match.scoreHistory);
+        if (match && match.opScore !== undefined) {
+          createOpScoreBarChart(canvas, match.opScore);
         }
       }
     }
@@ -711,8 +711,9 @@ function displayChampRoleOverview() {
   });
 }
 
-// Create a small line chart for score over time
-function createScoreChart(canvas, scoreData) {
+// Create a bar chart for OP Score
+// TODO: When League API is integrated, this will display additional OP Score data
+function createOpScoreBarChart(canvas, opScore) {
   const ctx = canvas.getContext('2d');
   
   // Destroy existing chart if it exists
@@ -720,39 +721,53 @@ function createScoreChart(canvas, scoreData) {
     canvas.chartInstance.destroy();
   }
   
+  // For now, display a single bar with the OP Score
+  // Later with League API integration, this can show multiple bars (e.g., by match, by champion, etc.)
   canvas.chartInstance = new Chart(ctx, {
-    type: 'line',
+    type: 'bar',
     data: {
-      labels: scoreData.map((_, i) => `T${i + 1}`),
+      labels: ['OP Score'],
       datasets: [{
-        label: 'Score',
-        data: scoreData,
+        label: 'OP Score',
+        data: [opScore],
+        backgroundColor: '#0EA5E9',
         borderColor: '#0EA5E9',
-        backgroundColor: 'rgba(14, 165, 233, 0.1)',
-        borderWidth: 2,
-        tension: 0.4,
-        fill: true
+        borderWidth: 2
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: true,
       plugins: {
-        legend: { display: false }
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `OP Score: ${context.parsed.y.toFixed(1)}`;
+            }
+          }
+        }
       },
       scales: {
         y: {
-          beginAtZero: false,
+          beginAtZero: true,
+          max: 100,
           grid: {
             color: '#334155'
           },
           ticks: {
+            color: '#94A3B8',
+            stepSize: 20
+          },
+          title: {
+            display: true,
+            text: 'OP Score',
             color: '#94A3B8'
           }
         },
         x: {
           grid: {
-            color: '#334155'
+            display: false
           },
           ticks: {
             color: '#94A3B8'
