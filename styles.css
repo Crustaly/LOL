@@ -66,3 +66,19 @@ body {
   background: #f1f1f1;
   border-radius: 8px;
 }
+
+/* Banner Image Object-Fit Function */
+/* This CSS property makes the banner images fit the screen size dynamically */
+#bannerImage1,
+#bannerImage2 {
+  /* object-fit: cover makes the image fill its container while maintaining aspect ratio */
+  /* The image will be scaled to cover the entire area, cropping if necessary */
+  object-fit: cover;
+  
+  /* Ensure the image fills the full width and height of its container */
+  width: 100%;
+  height: 100%;
+  
+  /* Position the focal point of the image (20% from top, centered horizontally) */
+  object-position: center 20%;
+}
