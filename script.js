@@ -506,6 +506,501 @@ function displayQuests() {
   $('#dynamicContent').html(html);
 }
 
+// Function to copy match link to clipboard
+function copyMatchLink(matchId) {
+  // Create the URL with the match ID as a query parameter
+  const currentUrl = window.location.origin + window.location.pathname;
+  const matchUrl = `${currentUrl}?match=${matchId}`;
+  
+  // Copy to clipboard
+  navigator.clipboard.writeText(matchUrl).then(() => {
+    // Show success notification
+    showCopyNotification('Match link copied to clipboard!');
+    
+    // Update button icon temporarily to show checkmark
+    const button = document.querySelector(`.share-match-btn[data-match-id="${matchId}"]`);
+    if (button) {
+      const originalHTML = button.innerHTML;
+      button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
+      button.classList.add('text-emerald-400');
+      
+      setTimeout(() => {
+        button.innerHTML = originalHTML;
+        button.classList.remove('text-emerald-400');
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    // Fallback: show the URL in an alert if clipboard API fails
+    alert('Copy this link: ' + matchUrl);
+  });
+}
+
+// Function to show copy notification
+function showCopyNotification(message) {
+  // Remove existing notification if any
+  const existingNotification = document.getElementById('copy-notification');
+  if (existingNotification) {
+    existingNotification.remove();
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.id = 'copy-notification';
+  notification.className = 'fixed top-20 right-6 bg-emerald-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+  notification.style.opacity = '0';
+  notification.style.transform = 'translateY(-10px)';
+  notification.style.transition = 'all 0.3s ease-out';
+  notification.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+    </svg>
+    <span>${message}</span>
+  `;
+  
+  document.body.appendChild(notification);
+  
+  // Animate in
+  setTimeout(() => {
+    notification.style.opacity = '1';
+    notification.style.transform = 'translateY(0)';
+  }, 10);
+  
+  // Animate out
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(-10px)';
+  }, 2000);
+  
+  // Remove after animation
+  setTimeout(() => {
+    notification.remove();
+  }, 2300);
+}
+
+// Function to check URL parameters and open specific match if needed
+function checkAndOpenMatchFromUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const matchId = urlParams.get('match');
+  
+  if (matchId) {
+    // Switch to Match History tab (tab 3)
+    $('.tab').removeClass('border-sky-500 text-sky-400').addClass('border-transparent text-gray-500');
+    $('.tab[data-tab="3"]').addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+    
+    // Load match history
+    fetchLeagueData().then(() => {
+      displayChampRoleOverview();
+      
+      // Wait for DOM to update, then open the specific match
+      setTimeout(() => {
+        const matchElement = $(`[data-match-id="${matchId}"]`);
+        if (matchElement.length > 0) {
+          const expanded = $(`#expanded-${matchId}`);
+          
+          // Expand the match if it's not already expanded
+          if (!expanded.is(':visible')) {
+            expanded.slideDown();
+            const matchHeader = matchElement.find('.match-header');
+            const icon = matchHeader.find('div').last();
+            icon.text('▲');
+            
+            // Create OP Score chart if match has opScore
+            const match = leagueData.matches.find(m => m.matchId === matchId);
+            if (match && match.opScore !== undefined) {
+              const matchIndex = leagueData.matches.findIndex(m => m.matchId === matchId);
+              const canvas = expanded.find('canvas')[0];
+              if (canvas && matchIndex !== -1) {
+                createOpScoreBarChart(canvas, match.opScore);
+              }
+            }
+          }
+          
+          // Scroll to the match
+          matchElement[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+          
+          // Highlight the match briefly
+          matchElement.css('box-shadow', '0 0 20px rgba(14, 165, 233, 0.5)');
+          setTimeout(() => {
+            matchElement.css('box-shadow', '');
+          }, 2000);
+        }
+      }, 300);
+    });
+    
+    // Clean URL to remove the parameter (optional - keeps URL clean)
+    // Uncomment if you want to remove the parameter after opening
+    // window.history.replaceState({}, document.title, window.location.pathname);
+  }
+}
+
+// Function to generate brutally honest, detailed, and highly constructive feedback
+function generateFeedback(match, playerData, mode) {
+  const kdaParts = match.kda.split('/');
+  const kills = parseInt(kdaParts[0]) || 0;
+  const deaths = parseInt(kdaParts[1]) || 0;
+  const assists = parseInt(kdaParts[2]) || 0;
+  const kda = deaths > 0 ? ((kills + assists) / deaths).toFixed(2) : (kills + assists).toFixed(2);
+  
+  let feedback = '';
+  const feedbackParts = [];
+  
+  if (mode === 'roast') {
+    // FUNNY, STRAIGHTFORWARD ROASTS WITH QUICK FIXES
+    
+    // Death Analysis - Most Critical
+    if (deaths >= 8) {
+      feedbackParts.push(`You died ${deaths} times. You're basically an ATM that dispenses gold. Quick fix: Check minimap before every fight. No vision? No fight.`);
+    } else if (deaths >= 6) {
+      feedbackParts.push(`Your ${deaths} deaths funded the enemy team's items. You're playing League like it's a charity. Fix: Assume missing enemies = they're coming for you.`);
+    } else if (deaths >= 4) {
+      feedbackParts.push(`You spent ${Math.round(deaths * 30)} seconds dead. That's time you could've been useful. Fix: Stay alive > Get a kill. Dead = useless.`);
+    }
+    
+    // KDA Analysis
+    if (kda < 1.0) {
+      feedbackParts.push(`Your ${kda} KDA? You're math homework - nobody wants you. Fix: Wait for enemy key abilities before engaging. Survival first, ego second.`);
+    } else if (kda < 1.5) {
+      feedbackParts.push(`Your ${kda} KDA is carrying your team... to a loss. Fix: Learn ${match.champion}'s range and never go past it alone.`);
+    }
+    
+    // CS Analysis
+    if (playerData) {
+      if (playerData.csPerMin < 5) {
+        feedbackParts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min is tragic. You're playing with items from Wish. Fix: Practice last-hitting 10 min/day. Hit cannons.`);
+      } else if (playerData.csPerMin < 6.5) {
+        feedbackParts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min is leaving money on the table. Fix: Learn wave management basics - freeze when ahead, shove when behind.`);
+      }
+      
+      // Gold Efficiency
+      if (playerData.goldEarned < 9000) {
+        feedbackParts.push(`You earned ${playerData.goldEarned.toLocaleString()} gold. That's poverty in League terms. Fix: Farm sidelanes safely when behind. Don't force bad fights.`);
+      } else if (playerData.goldEarned < 11000) {
+        feedbackParts.push(`Your ${playerData.goldEarned.toLocaleString()} gold is weak. Fix: Participate in objectives (they give gold) and stop wasting time.`);
+      }
+    }
+    
+    // Position Analysis
+    if (match.position && match.position > 7) {
+      feedbackParts.push(`You finished #${match.position}/10. Bottom tier, just like your LP. Fix: Watch the #1 player's replay from this game. Copy their positioning.`);
+    }
+    
+    // Score Analysis
+    if (match.score && match.score < 70) {
+      feedbackParts.push(`Your ${match.score} score means you're not helping anywhere. Fix: Pick ONE thing (survival OR farming) and master it for 5 games.`);
+    } else if (match.score && match.score < 85) {
+      feedbackParts.push(`Your ${match.score} score is inconsistent. You're coin-flipping. Fix: Before every fight, ask: Vision? Cooldowns? Safe position? Check all three.`);
+    }
+    
+    // Role-Specific Feedback
+    if (match.role === 'Support' && assists < 10) {
+      feedbackParts.push(`Support with ${assists} assists? You're supporting the enemy team more. Fix: Stay near carries. Peel > Engage. Save lives, don't chase kills.`);
+    }
+    
+    if (match.role === 'Jungle' && !match.win) {
+      feedbackParts.push(`Jungle diff happened and you lost it. Fix: Track enemy jungler. See them top? Steal their botside. Always be productive.`);
+    }
+    
+    // Champion-Specific Roasts
+    if (match.champion === 'Yasuo' || match.champion === 'Yone') {
+      if (deaths > 5) {
+        feedbackParts.push(`Playing ${match.champion} with ${deaths} deaths? You're the meme. Fix: Dash only when you can dash out. Keep one escape available.`);
+      }
+    }
+    
+    if (match.champion === 'Vayne' || match.champion === 'Kog\'Maw') {
+      if (deaths > 4) {
+        feedbackParts.push(`You're playing ${match.champion} like a melee champ. You're an ADC - stay BACK. Fix: Auto from max range. If you're melee range, you failed.`);
+      }
+    }
+    
+    // Generic Feedback
+    if (feedbackParts.length === 0) {
+      feedbackParts.push(`Your gameplay has more holes than Swiss cheese. Fix: Watch your replay. Every death: Why? Could it be prevented? Learn from each one.`);
+    }
+    
+    // Combine feedback - keep it short and punchy
+    feedback = feedbackParts.join(' ');
+    
+  } else {
+    // BRUTALLY HONEST, DETAILED ANALYSIS FOR COMPLIMENTS
+    
+    // KDA Deep Dive
+    if (kda > 4.0) {
+      feedbackParts.push(`Your ${kda} KDA ratio is exceptional - you're clearly understanding risk vs reward at a high level. You're securing kills without feeding shutdowns, which is crucial. Keep this up by: Always track enemy ultimates and key abilities before engaging. Your decision-making on when to commit is on point - maintain this by watching cooldowns religiously.`);
+    } else if (kda > 3.0) {
+      feedbackParts.push(`Your ${kda} KDA shows strong fundamentals. You're finding the right balance between aggression and safety. To maintain this: Continue tracking enemy cooldowns and summoner spells. Your positioning allowed you to deal damage without taking unnecessary risks - this is exactly how you should play ${match.champion}.`);
+    }
+    
+    if (kills > 12 && deaths <= 3) {
+      feedbackParts.push(`Your ${kills}-${deaths}-${assists} statline shows you understand priority targeting and execution. You're identifying key targets and eliminating them without overextending. This is high-level play. To replicate: Continue focusing on high-value targets (enemy carries, fed players) and exit cleanly after securing kills. Don't get greedy for the extra kill that doesn't matter.`);
+    }
+    
+    // CS Excellence
+    if (playerData && playerData.csPerMin >= 9) {
+      feedbackParts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min is professional-tier farming. At 20 minutes, that's ~180 CS - you're maximizing your income. This farm lead translates directly to item advantages. Maintain this by: Prioritizing waves before unnecessary roams. Understanding wave states (slow push before objectives, freeze when ahead, shove when behind). Every missed CS is money you'll never get back.`);
+    } else if (playerData && playerData.csPerMin >= 8) {
+      feedbackParts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min is strong for ${match.role}. You're maintaining consistent farm throughout the game, which kept you relevant. To improve further: Learn advanced wave manipulation. Practice last-hitting under pressure. Minimize CS loss when recalling - time your backs with cannon waves when possible.`);
+    }
+    
+    // Gold Efficiency Analysis
+    if (playerData && playerData.goldEarned > 13000) {
+      feedbackParts.push(`Your ${playerData.goldEarned.toLocaleString()} gold earned shows elite economy management. You're maximizing every income source: CS, kills, assists, objectives, and turret plates. This gold lead likely meant you were 1-2 items ahead of your lane opponent, creating massive pressure. Replicate this by: Never let waves crash into your turret without collecting them. Participate in every objective for the gold. Take jungle camps when your jungler isn't nearby.`);
+    } else if (playerData && playerData.goldEarned > 12000) {
+      feedbackParts.push(`Your ${playerData.goldEarned.toLocaleString()} gold shows strong resource management. You're balancing farming with fighting effectively. This gold advantage gave you item spikes that won fights. Continue this by: Maintaining CS even during mid/late game. Too many players abandon farm post-20 minutes - don't be one of them. Farm sidelanes safely, then group for objectives.`);
+    }
+    
+    // Position Excellence
+    if (match.position && match.position <= 3) {
+      const percentile = ((4 - match.position) / 10 * 100).toFixed(0);
+      feedbackParts.push(`Finishing #${match.position} means you outperformed ${percentile}% of players. This isn't luck - this is consistently making better decisions. Study this game to identify what you did differently: Was it your positioning in team fights? Your timing on rotations? Your ability to read the map? Document these patterns and make them habits.`);
+    } else if (match.position && match.position <= 5) {
+      feedbackParts.push(`Your #${match.position} finish shows you're playing at an above-average level. You're making more correct decisions than mistakes. To reach top 3: Focus on maximizing your impact in team fights. Ensure you're always positioned optimally for your role. Track enemy key abilities and engage only when they're on cooldown.`);
+    }
+    
+    // Score Analysis
+    if (match.score && match.score >= 95) {
+      feedbackParts.push(`Your ${match.score} score reflects elite-level performance across all metrics. You contributed in fights, objectives, vision, and macro play. This holistic approach is what separates good players from great ones. Maintain this by: Continue participating in every major objective. Maintain vision control in key areas. Communicate with your team about rotations and objective timers.`);
+    } else if (match.score && match.score >= 90) {
+      feedbackParts.push(`Your ${match.score} score shows strong all-around contribution. You're not just getting kills - you're impacting the game in multiple ways. To push towards 95+: Increase your objective participation. Ensure you're present for every dragon and Baron fight. Improve your vision score - place wards in high-traffic areas, not just randomly.`);
+    }
+    
+    // Role-Specific Excellence
+    if (match.role === 'Support' && assists >= 18) {
+      feedbackParts.push(`Your ${assists} assists show elite support play. You're enabling your team at a high level. This means you're positioned correctly in fights, timing your abilities well, and prioritizing your team's survival. Maintain this by: Continue tracking enemy engage tools and peeling for your carries. Your vision control is likely strong - keep wards in enemy jungle and around objectives.`);
+    }
+    
+    if (match.role === 'ADC' && playerData && playerData.csPerMin >= 8 && deaths <= 2) {
+      feedbackParts.push(`As ADC, you're doing everything right: farming well (${playerData.csPerMin.toFixed(1)} CS/min), staying alive (${deaths} deaths), and likely dealing consistent damage. This is textbook ADC play. Continue by: Always position behind your front line. Auto-attack the closest safe target - don't greed for the backline carry if it means dying. Your life > Getting a kill.`);
+    }
+    
+    if (match.role === 'Jungle' && match.win) {
+      feedbackParts.push(`Jungle diff - and you won it. Your pathing, gank timing, and objective control were superior. To maintain this: Continue tracking the enemy jungler. Counter-jungle when safe. Secure vision in their jungle. Time your ganks with objective spawns. Control the tempo of the game.`);
+    }
+    
+    // Champion-Specific Analysis
+    if (match.champion === 'Lux' || match.champion === 'Xerath' || match.champion === 'Ziggs') {
+      feedbackParts.push(`As ${match.champion}, your positioning was likely excellent - you dealt damage from safety. Maintain this by: Always stay at max range. Never use your escape ability aggressively unless you're 100% sure it's safe. Your job is sustained damage, not all-in engages.`);
+    }
+    
+    if (match.champion === 'Yasuo' || match.champion === 'Yone') {
+      if (kda > 2.5) {
+        feedbackParts.push(`Playing ${match.champion} with a ${kda} KDA is actually impressive - most players feed on these champions. Your decision-making on when to engage was correct. Continue by: Always have an escape plan. Don't use your E to go in unless you can dash out. Your Q is for poke and setup - use it to create opportunities, not force them.`);
+      }
+    }
+    
+    // Generic Comprehensive Feedback
+    if (feedbackParts.length === 0) {
+      feedbackParts.push(`Your performance shows solid fundamentals. To elevate further: Review your decision-making in this match. What made you successful? Was it positioning? Timing? Map awareness? Identify the patterns and make them automatic. Also, watch high-elo players of ${match.champion} and compare your gameplay. Notice their positioning, their timing, their decision-making.`);
+    }
+    
+    // Combine all feedback parts
+    feedback = feedbackParts.join(' ');
+    
+    // Add detailed improvement steps
+    feedback += ` TO REPLICATE THIS: (1) Review this replay and identify your win conditions - what did you do that created advantages? (2) Study high-elo ${match.champion} gameplay to see what they do that you're not doing yet, (3) Focus on consistency - one great game means nothing if the next 5 are mediocre, (4) Analyze your laning phase: how did you build your lead? Was it through CS, kills, or both? and (5) Document your strengths from this match and actively reinforce these patterns in future games.`;
+  }
+  
+  return feedback;
+}
+
+// Function to generate AI trash talk or compliment based on match stats
+function generateAIMessage(matchId) {
+  const match = leagueData.matches.find(m => m.matchId === matchId);
+  if (!match) {
+    showCopyNotification('Match data not found!');
+    return;
+  }
+  
+  // Get player data from roster
+  const playerData = match.playerRoster ? match.playerRoster.find(p => p.isYou === true) : null;
+  
+  // Get current mode (roast or compliment)
+  const activeModeBtn = $(`.ai-mode-toggle.active-ai-mode[data-match-id="${matchId}"]`);
+  const mode = activeModeBtn.length > 0 ? activeModeBtn.data('mode') : 'roast';
+  
+  // Parse KDA
+  const kdaParts = match.kda.split('/');
+  const kills = parseInt(kdaParts[0]) || 0;
+  const deaths = parseInt(kdaParts[1]) || 0;
+  const assists = parseInt(kdaParts[2]) || 0;
+  const kda = deaths > 0 ? ((kills + assists) / deaths).toFixed(2) : (kills + assists).toFixed(2);
+  
+  let message = '';
+  
+  if (mode === 'roast') {
+    // ROAST MODE - Generate funny roasts
+    const roasts = [];
+    
+    // KDA-based roasts
+    if (deaths > kills) {
+      roasts.push(`Your KDA ratio is ${kda}, but your deaths make me think you're playing on hard mode.`);
+      roasts.push(`With ${deaths} deaths, your champion should've filed a restraining order.`);
+    }
+    if (kda < 1.0 && deaths > 5) {
+      roasts.push(`Your ${deaths} deaths suggest you might be collecting grey screens as NFTs.`);
+    }
+    
+    // Position-based roasts
+    if (match.position && match.position > 7) {
+      roasts.push(`Position #${match.position} out of 10? You're statistically more useful than a ward... barely.`);
+      roasts.push(`Finishing #${match.position} means you had 70% of the lobby doing better than you. Math is brutal.`);
+    }
+    
+    // CS-based roasts
+    if (playerData && playerData.csPerMin < 5) {
+      roasts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min suggests you're farming champions instead of minions... unsuccessfully.`);
+    }
+    
+    // Gold-based roasts
+    if (playerData && playerData.goldEarned < 8000) {
+      roasts.push(`With ${playerData.goldEarned.toLocaleString()} gold earned, your build cost less than a League skin.`);
+    }
+    
+    // Score-based roasts
+    if (match.score && match.score < 70) {
+      roasts.push(`A score of ${match.score}? Your turret dives were statistically braver than your KDA suggests.`);
+      roasts.push(`Scoring ${match.score} means you contributed... something. We're still figuring out what.`);
+    }
+    
+    // Champion-specific roasts
+    if (match.champion === 'Yasuo' || match.champion === 'Yone') {
+      roasts.push(`Playing ${match.champion} with a ${kda} KDA? The wind is disappointed.`);
+    }
+    if (match.champion === 'Teemo') {
+      roasts.push(`Even Satan (${match.champion}) had a better day than you did.`);
+    }
+    
+    // Damage taken roasts
+    if (playerData && playerData.damageTaken > 20000 && playerData.deaths < 5) {
+      roasts.push(`You tanked ${playerData.damageTaken.toLocaleString()} damage like a champion, but your score says otherwise.`);
+    }
+    
+    // Generic fallbacks
+    if (roasts.length === 0) {
+      roasts.push(`Your performance was... memorable. For all the wrong reasons.`);
+      roasts.push(`That ${match.champion} game? Let's just say the replay is NSFW (Not Safe For Winrate).`);
+      roasts.push(`Your ${match.kda} KDA on ${match.champion} tells a story. It's a tragedy.`);
+    }
+    
+    const roast = roasts[Math.floor(Math.random() * roasts.length)];
+    const feedback = generateFeedback(match, playerData, mode);
+    message = `${roast} ${feedback}`;
+    
+  } else {
+    // COMPLIMENT MODE - Generate funny compliments
+    const compliments = [];
+    
+    // KDA-based compliments
+    if (kda > 3.0) {
+      compliments.push(`Your ${kda} KDA ratio? That's not a stat, that's a flex.`);
+      compliments.push(`With a ${kda} KDA, you're basically carrying your team like a backpack full of LP.`);
+    }
+    if (kills > 10 && deaths < 3) {
+      compliments.push(`${kills} kills with only ${deaths} deaths? You're playing 4D chess while enemies play checkers.`);
+    }
+    
+    // Position-based compliments
+    if (match.position && match.position <= 3) {
+      compliments.push(`Position #${match.position} out of 10? Top ${(match.position/10*100).toFixed(0)}% energy right there.`);
+      compliments.push(`Finishing #${match.position} means you outplayed ${10 - match.position} people. Respect.`);
+    }
+    
+    // CS-based compliments
+    if (playerData && playerData.csPerMin >= 8) {
+      compliments.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min? Farmers only, but make it legendary.`);
+    }
+    
+    // Gold-based compliments
+    if (playerData && playerData.goldEarned > 12000) {
+      compliments.push(`Earning ${playerData.goldEarned.toLocaleString()} gold means you're basically Scrooge McDuck in the Rift.`);
+    }
+    
+    // Score-based compliments
+    if (match.score && match.score >= 90) {
+      compliments.push(`A score of ${match.score}? You didn't just win, you put on a clinic.`);
+      compliments.push(`Scoring ${match.score} means you're either smurfing or just built different. Both are valid.`);
+    }
+    
+    // Champion-specific compliments
+    if (match.champion === 'Lux') {
+      // Fake skill shot accuracy for demonstration
+      const accuracy = Math.floor(85 + Math.random() * 15); // 85-100%
+      compliments.push(`You landed ${accuracy}% of ${match.champion} Qs. Enemies should file a complaint.`);
+    }
+    if (match.champion === 'Jhin') {
+      compliments.push(`That ${match.champion} performance was a masterpiece. Four out of four stars.`);
+    }
+    if (match.champion === 'Thresh' || match.champion === 'Blitzcrank') {
+      compliments.push(`Your ${match.champion} hooks were landing so consistently, enemies thought you were scripting.`);
+    }
+    
+    // Support role compliments
+    if (match.role === 'Support' && assists > 15) {
+      compliments.push(`${assists} assists on ${match.champion}? You're the unsung hero your ADC doesn't deserve.`);
+    }
+    
+    // Damage taken compliments (for tanks)
+    if (playerData && playerData.damageTaken > 20000 && deaths < 4) {
+      compliments.push(`You tanked ${playerData.damageTaken.toLocaleString()} damage and lived to tell about it. Absolute unit.`);
+    }
+    
+    // Generic fallbacks
+    if (compliments.length === 0) {
+      compliments.push(`Your ${match.champion} game was solid. Sometimes consistency is the real win.`);
+      compliments.push(`That ${match.kda} KDA on ${match.champion}? Clean execution. The stats tell a good story.`);
+      compliments.push(`You played ${match.champion} like you had something to prove. Consider it proven.`);
+    }
+    
+    const compliment = compliments[Math.floor(Math.random() * compliments.length)];
+    const feedback = generateFeedback(match, playerData, mode);
+    message = `${compliment} ${feedback}`;
+  }
+  
+  // Display the message
+  const messageContainer = $(`#ai-message-${matchId}`);
+  const messageText = $(`#ai-text-${matchId}`);
+  
+  messageText.text(message);
+  messageContainer.removeClass('hidden').addClass('fade-in');
+  
+  // Store message for sharing
+  messageContainer.data('ai-message', message);
+}
+
+// Function to share AI message to clipboard (Discord-ready)
+function shareAIMessage(matchId) {
+  const messageContainer = $(`#ai-message-${matchId}`);
+  const message = messageContainer.data('ai-message');
+  
+  if (!message) {
+    showCopyNotification('No message to share. Generate one first!');
+    return;
+  }
+  
+  const match = leagueData.matches.find(m => m.matchId === matchId);
+  if (!match) return;
+  
+  // Format as Discord-ready message with match context
+  const shareText = `${message}\n\n📊 ${match.champion} ${match.role} | ${match.kda} KDA | ${match.win ? 'Victory' : 'Defeat'} | ${match.date}`;
+  
+  navigator.clipboard.writeText(shareText).then(() => {
+    showCopyNotification('AI message copied to clipboard!');
+    
+    // Update button icon temporarily
+    const button = $(`.share-ai-btn[data-match-id="${matchId}"]`);
+    const originalHTML = button.html();
+    button.html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>');
+    
+    setTimeout(() => {
+      button.html(originalHTML);
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    alert('Copy this message:\n\n' + shareText);
+  });
+}
+
 // Function to display champ/role overview with matches
 function displayChampRoleOverview() {
   console.log('displayChampRoleOverview called');
@@ -546,6 +1041,11 @@ function displayChampRoleOverview() {
     } else {
       html += `<div class="text-sky-400 font-bold">-</div>`;
     }
+    
+    // Share button
+    html += `<button class="share-match-btn text-gray-400 hover:text-sky-400 transition-colors px-2 py-1 rounded hover:bg-slate-700" data-match-id="${match.matchId}" title="Share match link" onclick="event.stopPropagation(); copyMatchLink('${match.matchId}');">`;
+    html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>';
+    html += '</button>';
     
     html += '<div class="text-gray-500">▼</div>';
     html += '</div>';
@@ -637,6 +1137,35 @@ function displayChampRoleOverview() {
       html += '</div>';
       
       html += '</div></div>'; // grid and section
+      
+      // AI Trash Talk / Compliment Generator Section
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
+      html += '<div class="flex items-center justify-between mb-4">';
+      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">AI Trash Talk / Compliment Generator</h4>';
+      html += '</div>';
+      
+      // Toggle and Generate Controls
+      html += '<div class="flex items-center gap-4 mb-4 flex-wrap">';
+      html += '<div class="flex items-center gap-2 bg-slate-900 rounded-lg p-1 border border-slate-700">';
+      html += `<button class="ai-mode-toggle px-4 py-2 rounded-md text-sm font-semibold transition-all active-ai-mode bg-sky-500 text-white" data-match-id="${match.matchId}" data-mode="roast">🔥 Roast Mode</button>`;
+      html += `<button class="ai-mode-toggle px-4 py-2 rounded-md text-sm font-semibold transition-all bg-slate-700 text-gray-300" data-match-id="${match.matchId}" data-mode="compliment">✨ Compliment Mode</button>`;
+      html += '</div>';
+      html += `<button class="generate-ai-btn px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-md text-sm font-semibold transition-colors" data-match-id="${match.matchId}">Generate</button>`;
+      html += '</div>';
+      
+      // Generated Message Display Area
+      html += `<div id="ai-message-${match.matchId}" class="ai-message-container bg-slate-900 border border-slate-600 rounded-lg p-5 min-h-[100px] max-w-full hidden">`;
+      html += '<div class="flex items-start justify-between gap-4">';
+      html += '<div class="flex-1 min-w-0">';
+      html += `<p id="ai-text-${match.matchId}" class="text-gray-200 text-sm font-medium leading-relaxed whitespace-pre-wrap break-words"></p>`;
+      html += '</div>';
+      html += `<button class="share-ai-btn text-gray-400 hover:text-sky-400 transition-colors p-2 rounded hover:bg-slate-800 flex-shrink-0 mt-1" data-match-id="${match.matchId}" title="Copy to clipboard">`;
+      html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>';
+      html += '</button>';
+      html += '</div>';
+      html += '</div>';
+      
+      html += '</div>'; // AI Generator section
     } else {
       // Show message for matches without detailed data
       html += '<div class="text-gray-400 text-center py-8">Detailed match data not available for this match.</div>';
@@ -703,6 +1232,31 @@ function displayChampRoleOverview() {
       content.slideDown();
       arrow.text('▲');
     }
+  });
+  
+  // Setup click handlers for AI mode toggle
+  $('.ai-mode-toggle').off('click').on('click', function(event) {
+    event.stopPropagation();
+    const matchId = $(this).data('match-id');
+    const mode = $(this).data('mode');
+    
+    // Update active state for both buttons in this match
+    $(`.ai-mode-toggle[data-match-id="${matchId}"]`).removeClass('active-ai-mode bg-sky-500 text-white').addClass('bg-slate-700 text-gray-300');
+    $(this).addClass('active-ai-mode bg-sky-500 text-white').removeClass('bg-slate-700 text-gray-300');
+  });
+  
+  // Setup click handler for generate AI button
+  $('.generate-ai-btn').off('click').on('click', function(event) {
+    event.stopPropagation();
+    const matchId = $(this).data('match-id');
+    generateAIMessage(matchId);
+  });
+  
+  // Setup click handler for share AI button
+  $('.share-ai-btn').off('click').on('click', function(event) {
+    event.stopPropagation();
+    const matchId = $(this).data('match-id');
+    shareAIMessage(matchId);
   });
 }
 
@@ -774,6 +1328,220 @@ function createOpScoreBarChart(canvas, opScore) {
   });
 }
 
+// Function to calculate and display profile stats from last 20 matches
+function calculateAndDisplayProfileStats(matches) {
+  if (!matches || matches.length === 0) {
+    return '';
+  }
+  
+  // Initialize counters and totals
+  const championCounts = {};
+  const roleCounts = {};
+  let totalOpScore = 0;
+  let opScoreCount = 0;
+  let totalKills = 0;
+  let totalDeaths = 0;
+  let totalAssists = 0;
+  let totalGoldEarned = 0;
+  let goldCount = 0;
+  let totalCreepScore = 0;
+  let csCount = 0;
+  let totalGameLength = 0;
+  let gameLengthCount = 0;
+  
+  // Process each match
+  matches.forEach(match => {
+    // Count champions
+    if (match.champion) {
+      championCounts[match.champion] = (championCounts[match.champion] || 0) + 1;
+    }
+    
+    // Count roles
+    if (match.role) {
+      roleCounts[match.role] = (roleCounts[match.role] || 0) + 1;
+    }
+    
+    // Calculate OP Score average
+    if (match.opScore !== undefined && match.opScore !== null) {
+      totalOpScore += match.opScore;
+      opScoreCount++;
+    }
+    
+    // Parse KDA (format: "kills/deaths/assists")
+    if (match.kda && typeof match.kda === 'string') {
+      const kdaParts = match.kda.split('/');
+      if (kdaParts.length === 3) {
+        const kills = parseFloat(kdaParts[0]) || 0;
+        const deaths = parseFloat(kdaParts[1]) || 0;
+        const assists = parseFloat(kdaParts[2]) || 0;
+        totalKills += kills;
+        totalDeaths += deaths;
+        totalAssists += assists;
+      }
+    }
+    
+    // Determine game length for this match
+    let gameLength = null;
+    if (match.gameLength !== undefined && match.gameLength !== null) {
+      gameLength = match.gameLength;
+    } else {
+      // Estimate: assume 27 minutes average (typical League game length)
+      gameLength = 27;
+    }
+    totalGameLength += gameLength;
+    gameLengthCount++;
+    
+    // Get player stats from playerRoster if available
+    if (match.playerRoster && Array.isArray(match.playerRoster)) {
+      const playerData = match.playerRoster.find(p => p.isYou === true);
+      if (playerData) {
+        // Gold earned
+        if (playerData.goldEarned !== undefined) {
+          totalGoldEarned += playerData.goldEarned;
+          goldCount++;
+        }
+        
+        // Creep score - calculate from CS/min if available
+        if (playerData.csPerMin !== undefined) {
+          // Use actual game length if available, otherwise use estimated
+          const estimatedCS = playerData.csPerMin * gameLength;
+          totalCreepScore += estimatedCS;
+          csCount++;
+        }
+      }
+    }
+  });
+  
+  // Find most played champion(s) - handle ties
+  const championValues = Object.values(championCounts);
+  const maxChampionGames = championValues.length > 0 ? Math.max(...championValues) : 0;
+  const mostPlayedChampions = maxChampionGames > 0 ? Object.keys(championCounts).filter(
+    champ => championCounts[champ] === maxChampionGames
+  ) : ['N/A'];
+  
+  // Find most played role(s) - handle ties
+  const roleValues = Object.values(roleCounts);
+  const maxRoleGames = roleValues.length > 0 ? Math.max(...roleValues) : 0;
+  const mostPlayedRoles = maxRoleGames > 0 ? Object.keys(roleCounts).filter(
+    role => roleCounts[role] === maxRoleGames
+  ) : ['N/A'];
+  
+  // Calculate averages
+  const avgOpScore = opScoreCount > 0 ? (totalOpScore / opScoreCount) : 0;
+  const avgKDA = totalDeaths > 0 ? ((totalKills + totalAssists) / totalDeaths) : (totalKills + totalAssists);
+  const avgGoldEarned = goldCount > 0 ? (totalGoldEarned / goldCount) : null;
+  const avgCreepScore = csCount > 0 ? (totalCreepScore / csCount) : null;
+  const avgGameLength = gameLengthCount > 0 ? (totalGameLength / gameLengthCount) : null;
+  
+  // Build HTML for Profile Stats section
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8">';
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-6">Profile Stats</h2>';
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">';
+  
+  // Most Played Champion
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Most Played Champion</div>';
+  html += '<div class="text-lg font-bold text-gray-100">';
+  html += mostPlayedChampions.join(', ');
+  html += '</div>';
+  if (maxChampionGames > 0) {
+    html += '<div class="text-sm text-gray-400 mt-1">';
+    html += `${maxChampionGames} game${maxChampionGames !== 1 ? 's' : ''} (Last 20 matches)`;
+    html += '</div>';
+  } else {
+    html += '<div class="text-sm text-gray-500 mt-1">No data available</div>';
+  }
+  html += '</div>';
+  
+  // Most Played Role
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Most Played Role</div>';
+  html += '<div class="text-lg font-bold text-gray-100">';
+  html += mostPlayedRoles.join(', ');
+  html += '</div>';
+  if (maxRoleGames > 0) {
+    html += '<div class="text-sm text-gray-400 mt-1">';
+    html += `${maxRoleGames} game${maxRoleGames !== 1 ? 's' : ''} (Last 20 matches)`;
+    html += '</div>';
+  } else {
+    html += '<div class="text-sm text-gray-500 mt-1">No data available</div>';
+  }
+  html += '</div>';
+  
+  // Average OP Score
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Average OP Score</div>';
+  html += '<div class="text-2xl font-bold text-sky-400">';
+  html += avgOpScore.toFixed(1);
+  html += '</div>';
+  html += '<div class="text-sm text-gray-400 mt-1">From last 20 matches</div>';
+  html += '</div>';
+  
+  // Average KDA
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Average KDA</div>';
+  html += '<div class="text-2xl font-bold text-emerald-400">';
+  html += avgKDA.toFixed(2);
+  html += '</div>';
+  html += '<div class="text-sm text-gray-400 mt-1">';
+  const totalMatches = matches.length;
+  const avgKills = (totalKills / totalMatches).toFixed(1);
+  const avgDeaths = (totalDeaths / totalMatches).toFixed(1);
+  const avgAssists = (totalAssists / totalMatches).toFixed(1);
+  html += `${avgKills}/${avgDeaths}/${avgAssists} (Last 20 matches)`;
+  html += '</div>';
+  html += '</div>';
+  
+  // Average Gold Earned
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Average Gold Earned</div>';
+  if (avgGoldEarned !== null) {
+    html += '<div class="text-2xl font-bold text-yellow-400">';
+    html += Math.round(avgGoldEarned).toLocaleString();
+    html += '</div>';
+    html += '<div class="text-sm text-gray-400 mt-1">From last 20 matches</div>';
+  } else {
+    html += '<div class="text-lg font-bold text-gray-500">N/A</div>';
+    html += '<div class="text-sm text-gray-500 mt-1">Insufficient data</div>';
+  }
+  html += '</div>';
+  
+  // Average Creep Score
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Average Creep Score</div>';
+  if (avgCreepScore !== null) {
+    html += '<div class="text-2xl font-bold text-purple-400">';
+    html += Math.round(avgCreepScore).toLocaleString();
+    html += '</div>';
+    html += '<div class="text-sm text-gray-400 mt-1">From last 20 matches</div>';
+  } else {
+    html += '<div class="text-lg font-bold text-gray-500">N/A</div>';
+    html += '<div class="text-sm text-gray-500 mt-1">Insufficient data</div>';
+  }
+  html += '</div>';
+  
+  // Average Game Length
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<div class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Average Game Length</div>';
+  if (avgGameLength !== null) {
+    const minutes = Math.floor(avgGameLength);
+    const seconds = Math.round((avgGameLength - minutes) * 60);
+    html += '<div class="text-2xl font-bold text-rose-400">';
+    html += `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    html += '</div>';
+    html += '<div class="text-sm text-gray-400 mt-1">From last 20 matches</div>';
+  } else {
+    html += '<div class="text-lg font-bold text-gray-500">N/A</div>';
+    html += '<div class="text-sm text-gray-500 mt-1">Insufficient data</div>';
+  }
+  html += '</div>';
+  
+  html += '</div>'; // Close grid
+  html += '</div>'; // Close profile stats section
+  
+  return html;
+}
+
 // Function to display OP Score history
 function displayScore() {
   if (!leagueData.matches || leagueData.matches.length === 0) {
@@ -792,14 +1560,17 @@ function displayScore() {
     return;
   }
   
-  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8">';
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-8 mb-6">';
   html += '<h2 class="text-2xl font-bold text-gray-100 mb-6">OP Score History (Last 20 Matches)</h2>';
-  html += '<div class="bg-slate-900 rounded-lg p-6" style="height: 500px; position: relative;">';
-  html += '<canvas id="opScoreChart" style="max-height: 100%;"></canvas>';
+  html += '<div class="bg-slate-900 rounded-lg p-6 futuristic-chart-container" style="height: 500px; position: relative; background: linear-gradient(135deg, #0a0f1a 0%, #1a1f2e 100%); border: 1px solid rgba(0, 128, 255, 0.2); box-shadow: inset 0 0 30px rgba(0, 128, 255, 0.1), 0 0 40px rgba(0, 128, 255, 0.1);">';
+  html += '<canvas id="opScoreChart" style="max-height: 100%; filter: drop-shadow(0 0 8px rgba(0, 191, 255, 0.6)) drop-shadow(0 0 15px rgba(0, 128, 255, 0.4));"></canvas>';
   html += '</div>';
   html += '</div>';
-
-        $('#dynamicContent').html(html);
+  
+  // Add Profile Stats section
+  html += calculateAndDisplayProfileStats(recentMatches);
+  
+  $('#dynamicContent').html(html);
   
   // Create Chart.js graph
   setTimeout(() => {
@@ -818,28 +1589,127 @@ function displayScore() {
       window.opScoreChartInstance.destroy();
     }
     
+    // Create a plugin to apply gradients dynamically
+    const gradientPlugin = {
+      id: 'neonGradient',
+      afterLayout: (chart) => {
+        // Store gradients in chart for later use
+        const ctx = chart.ctx;
+        const chartArea = chart.chartArea;
+        if (!chartArea) return;
+        
+        const dataset = chart.data.datasets[0];
+        
+        // Create gradient for border color (vertical gradient from top to bottom - neon blue)
+        const lineGradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        lineGradient.addColorStop(0, '#00BFFF'); // Bright neon blue at top
+        lineGradient.addColorStop(0.5, '#0080FF'); // Deep blue in middle
+        lineGradient.addColorStop(1, '#0066FF'); // Deeper neon blue at bottom
+        
+        // Create gradient for area fill (darker at bottom, brighter at top - neon blue)
+        const fillGradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        fillGradient.addColorStop(0, 'rgba(0, 191, 255, 0.4)'); // Bright neon blue at top
+        fillGradient.addColorStop(0.5, 'rgba(0, 128, 255, 0.3)'); // Deep blue in middle
+        fillGradient.addColorStop(1, 'rgba(0, 102, 255, 0.2)'); // Deeper neon blue at bottom
+        
+        // Store gradients in chart for use during drawing
+        chart.neonGradients = {
+          line: lineGradient,
+          fill: fillGradient
+        };
+        
+        // Apply gradients to the dataset
+        dataset.borderColor = lineGradient;
+        dataset.backgroundColor = fillGradient;
+      }
+    };
+    
+    // Plugin to update tooltip text colors based on win/loss
+    const tooltipColorPlugin = {
+      id: 'tooltipColors',
+      beforeTooltipDraw: (chart) => {
+        const tooltip = chart.tooltip;
+        if (!tooltip || !tooltip.dataPoints || tooltip.dataPoints.length === 0) return;
+        
+        // Get the active data point
+        const activePoint = tooltip.dataPoints[0];
+        const index = activePoint.dataIndex;
+        const match = recentMatches[index];
+        if (!match) return;
+        
+        const isWin = match.win;
+        // Update tooltip text colors dynamically based on win/loss
+        // Green for victory, red for defeat
+        tooltip.options.titleColor = isWin ? '#00FF88' : '#FF4444';
+        tooltip.options.bodyColor = isWin ? '#E0FFE0' : '#FFE0E0';
+      }
+    };
+    
     window.opScoreChartInstance = new Chart(ctx, {
       type: 'line',
+      plugins: [gradientPlugin, tooltipColorPlugin],
       data: {
         labels: recentMatches.map((m, i) => `Match ${recentMatches.length - i}`),
         datasets: [{
           label: 'OP Score',
           data: recentMatches.map(m => m.opScore),
-          borderColor: '#0EA5E9',
-          backgroundColor: 'rgba(14, 165, 233, 0.1)',
-          borderWidth: 3,
-          pointRadius: 6,
-          pointHoverRadius: 8,
-          pointBackgroundColor: '#0EA5E9',
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          tension: 0.4,
-          fill: true
+          borderColor: '#0080FF', // Temporary neon blue, will be replaced by plugin
+          backgroundColor: 'rgba(0, 128, 255, 0.2)', // Temporary neon blue, will be replaced by plugin
+          borderWidth: 4,
+          pointRadius: 0, // Hide points for cleaner look
+          pointHoverRadius: 10,
+          pointBackgroundColor: function(context) {
+            // Return green for victory, red for defeat
+            const index = context.dataIndex;
+            const match = recentMatches[index];
+            return match && match.win ? '#00FF88' : '#FF4444';
+          },
+          pointBorderColor: '#FFFFFF',
+          pointBorderWidth: 3,
+          pointHoverBackgroundColor: function(context) {
+            // Return green for victory, red for defeat
+            const index = context.dataIndex;
+            const match = recentMatches[index];
+            return match && match.win ? '#00FF88' : '#FF4444';
+          },
+          pointHoverBorderColor: '#FFFFFF',
+          pointHoverBorderWidth: 4,
+          tension: 0.5, // Smoother curves
+          fill: true,
+          borderCapStyle: 'round',
+          borderJoinStyle: 'round'
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          duration: 1500,
+          easing: 'easeOutQuart',
+          delay: 0
+        },
+        transitions: {
+          show: {
+            animations: {
+              x: {
+                from: 0
+              },
+              y: {
+                from: 0
+              }
+            }
+          },
+          hide: {
+            animations: {
+              x: {
+                to: 0
+              },
+              y: {
+                to: 0
+              }
+            }
+          }
+        },
         onHover: function(event, elements) {
           event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
         },
@@ -854,20 +1724,24 @@ function displayScore() {
             animation: {
               duration: 200
             },
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-            borderColor: '#334155',
-            borderWidth: 1,
+            backgroundColor: 'rgba(10, 15, 26, 0.95)', // Darker background
+            borderColor: '#0080FF', // Neon blue border
+            borderWidth: 2,
             padding: 12,
-            titleColor: '#E2E4E9',
-            bodyColor: '#E2E4E9',
+            titleColor: '#00BFFF', // Bright neon blue title (will be overridden by plugin for win/loss)
+            bodyColor: '#E0F7FA', // Light cyan body text (will be overridden by plugin for win/loss)
             displayColors: false,
             titleFont: {
               size: 14,
               weight: 'bold'
             },
             bodyFont: {
-              size: 13
+              size: 13,
+              weight: 'normal'
             },
+            boxPadding: 6,
+            boxWidth: 20,
+            cornerRadius: 6,
             callbacks: {
               title: function(context) {
                 if (!context || !context[0]) return '';
@@ -878,16 +1752,25 @@ function displayScore() {
                 return `${match.date} - ${winText}`;
               },
               label: function(context) {
-                if (!context || !context[0]) return [];
+                // Return empty array to hide default label since we'll use afterBody
+                return [];
+              },
+              afterBody: function(context) {
+                if (!context || context.length === 0) return [];
                 const index = context[0].dataIndex;
                 const match = recentMatches[index];
                 if (!match) return ['No data'];
                 const prefix = match.win ? '✓' : '✗';
-                return [
+                const labels = [
                   `${prefix} ${match.champion} (${match.role})`,
                   `OP Score: ${match.opScore}`,
                   `KDA: ${match.kda}`
                 ];
+                // Add score if it exists in the match data
+                if (match.score !== undefined) {
+                  labels.push(`Score: ${match.score}`);
+                }
+                return labels;
               }
             }
           }
@@ -896,29 +1779,51 @@ function displayScore() {
           y: {
             beginAtZero: false,
             grid: {
-              color: '#334155'
+              color: 'rgba(0, 128, 255, 0.15)', // Subtle neon blue grid lines
+              lineWidth: 1,
+              drawBorder: true,
+              borderColor: 'rgba(0, 191, 255, 0.3)'
             },
             ticks: {
-              color: '#94A3B8'
+              color: '#0080FF', // Neon blue text
+              font: {
+                size: 11,
+                weight: 'bold'
+              },
+              backdropColor: 'rgba(15, 23, 42, 0.8)',
+              padding: 6
             },
             title: {
               display: true,
               text: 'OP Score',
-              color: '#94A3B8',
+              color: '#00BFFF', // Bright neon blue title
               font: {
-                size: 12,
+                size: 13,
                 weight: 'bold'
+              },
+              padding: {
+                top: 10,
+                bottom: 10
               }
             }
           },
           x: {
             grid: {
-              color: '#334155'
+              color: 'rgba(0, 128, 255, 0.15)', // Subtle neon blue grid lines
+              lineWidth: 1,
+              drawBorder: true,
+              borderColor: 'rgba(0, 191, 255, 0.3)'
             },
             ticks: {
-              color: '#94A3B8',
+              color: '#0080FF', // Neon blue text
               maxRotation: 45,
-              minRotation: 45
+              minRotation: 45,
+              font: {
+                size: 10,
+                weight: 'bold'
+              },
+              backdropColor: 'rgba(15, 23, 42, 0.8)',
+              padding: 6
             }
           }
         },
@@ -981,11 +1886,10 @@ function extractTierFromRank(rankString) {
 
 // Function to display overview information
 function displayOverview() {
-  let html = '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
-  
-  // Current Rank Section (if available)
+  // Current Rank Section (if available) - non-uniform box (wide but not tall)
+  let html = '';
   if (leagueData.currentRank) {
-    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+    html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6" style="width: 100%; min-height: 140px; max-height: 160px;">';
     html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Current Rank</h3>';
     html += '<div class="flex items-center gap-4">';
     // Rank image
@@ -1003,31 +1907,28 @@ function displayOverview() {
     html += '</div>';
   }
   
+  html += '<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">';
+  
   // Past Season Ranks Section
   html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
   html += '<h3 class="text-lg font-semibold text-gray-200 uppercase tracking-wide mb-4">Past Season Ranks</h3>';
-  html += '<div class="overflow-x-auto">';
-  html += '<table class="w-full border-separate border-spacing-0">';
-  html += '<thead><tr>';
-  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Season</th>';
-  html += '<th class="bg-slate-900 text-gray-400 p-3 text-left text-xs font-semibold uppercase tracking-wide border-b border-slate-700">Rank</th>';
-  html += '</tr></thead><tbody>';
+  html += '<div class="grid grid-cols-2 gap-4">';
   leagueData.pastSeasonRanks.forEach(s => {
     const pastTier = extractTierFromRank(s.rank);
     const pastRankImagePath = pastTier ? getRankImagePath(pastTier) : null;
-    html += '<tr class="hover:bg-slate-800/50 transition-colors">';
-    html += `<td class="p-3 text-gray-300 border-b border-slate-700">${s.season}</td>`;
-    html += '<td class="p-3 text-gray-300 border-b border-slate-700">';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 hover:bg-slate-800/50 transition-colors">';
+    html += '<div class="flex flex-col items-start gap-2">';
+    html += `<div class="text-gray-400 text-xs font-semibold uppercase tracking-wide">${s.season}</div>`;
     html += '<div class="flex items-center gap-2">';
     if (pastRankImagePath) {
       html += `<img src="${pastRankImagePath}" alt="${s.rank} rank" class="w-8 h-8 object-contain" onerror="this.style.display='none';">`;
     }
-    html += `<span>${s.rank}</span>`;
+    html += `<span class="text-gray-300 font-medium">${s.rank}</span>`;
     html += '</div>';
-    html += '</td>';
-    html += '</tr>';
+    html += '</div>';
+    html += '</div>';
   });
-  html += '</tbody></table></div></div>';
+  html += '</div></div>';
   
   // Most Played Champions Section
   html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
@@ -1046,6 +1947,1043 @@ function displayOverview() {
   
   html += '</div>';
   $('#dynamicContent').html(html);
+}
+
+// Function to display Mini game activities menu
+function displayMiniGame() {
+  let html = '<div class="space-y-6">';
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-6">Mini Games</h2>';
+  html += '<p class="text-gray-400 mb-6">Choose an activity to play:</p>';
+  
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">';
+  
+  // Duo Draft Activity Card
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-sky-500 transition-all duration-200 cursor-pointer group" onclick="displayDuoDraft()">';
+  html += '<div class="flex items-center gap-3 mb-3">';
+  html += '<div class="text-3xl">🎮</div>';
+  html += '<h3 class="text-xl font-semibold text-gray-100 group-hover:text-sky-400 transition-colors">Duo Draft</h3>';
+  html += '</div>';
+  html += '<p class="text-gray-400 text-sm mb-4">Search for 2 players and let AI simulate who\'d win more matches together based on their match history.</p>';
+  html += '<div class="text-sky-400 text-sm font-medium">Click to play →</div>';
+  html += '</div>';
+  
+  // Champion Picker Activity Card
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-sky-500 transition-all duration-200 cursor-pointer group" onclick="displayChampionPicker()">';
+  html += '<div class="flex items-center gap-3 mb-3">';
+  html += '<div class="text-3xl">🎲</div>';
+  html += '<h3 class="text-xl font-semibold text-gray-100 group-hover:text-sky-400 transition-colors">Champion Picker</h3>';
+  html += '</div>';
+  html += '<p class="text-gray-400 text-sm mb-4">Get a smart random champion recommendation based on your performance history and win rates.</p>';
+  html += '<div class="text-sky-400 text-sm font-medium">Click to play →</div>';
+  html += '</div>';
+  
+  // Match Predictor Activity Card
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-sky-500 transition-all duration-200 cursor-pointer group" onclick="displayMatchPredictor()">';
+  html += '<div class="flex items-center gap-3 mb-3">';
+  html += '<div class="text-3xl">🔮</div>';
+  html += '<h3 class="text-xl font-semibold text-gray-100 group-hover:text-sky-400 transition-colors">Match Predictor</h3>';
+  html += '</div>';
+  html += '<p class="text-gray-400 text-sm mb-4">Enter team compositions and predict the match outcome based on champion strengths and your performance data.</p>';
+  html += '<div class="text-sky-400 text-sm font-medium">Click to play →</div>';
+  html += '</div>';
+  
+  // Rank Calculator Activity Card
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 hover:border-sky-500 transition-all duration-200 cursor-pointer group" onclick="displayRankCalculator()">';
+  html += '<div class="flex items-center gap-3 mb-3">';
+  html += '<div class="text-3xl">📊</div>';
+  html += '<h3 class="text-xl font-semibold text-gray-100 group-hover:text-sky-400 transition-colors">Rank Calculator</h3>';
+  html += '</div>';
+  html += '<p class="text-gray-400 text-sm mb-4">Calculate how many wins you need to rank up, estimate LP gains/losses, and plan your climb.</p>';
+  html += '<div class="text-sky-400 text-sm font-medium">Click to play →</div>';
+  html += '</div>';
+  
+  html += '</div>'; // Close grid
+  html += '</div>'; // Close space-y-6
+  
+  $('#dynamicContent').html(html);
+}
+
+// Function to display Duo Draft game
+function displayDuoDraft() {
+  let html = '<div class="space-y-6">';
+  
+  // Back button
+  html += '<button onclick="displayMiniGame()" class="text-sky-400 hover:text-sky-300 transition-colors mb-4 flex items-center gap-2">';
+  html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>';
+  html += 'Back to Mini Games';
+  html += '</button>';
+  
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-2">Duo Draft</h2>';
+  html += '<p class="text-gray-400 mb-6">Search for 2 players to see how well they would work together based on their match history!</p>';
+  
+  // Player Search Form
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">';
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Player 1</label>';
+  html += '<input type="text" id="player1Search" placeholder="Enter player name..." class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Player 2</label>';
+  html += '<input type="text" id="player2Search" placeholder="Enter player name..." class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '</div>';
+  html += '<button onclick="simulateDuoDraft()" class="w-full md:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg transition-colors">';
+  html += 'Simulate Duo Compatibility';
+  html += '</button>';
+  html += '</div>';
+  
+  // Results container (initially hidden)
+  html += '<div id="duoResults" class="hidden">';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#dynamicContent').html(html);
+}
+
+// Function to find all unique players from match history
+function getAllPlayersFromMatches() {
+  const players = new Set();
+  leagueData.matches.forEach(match => {
+    if (match.playerRoster) {
+      match.playerRoster.forEach(player => {
+        if (player.player && player.player !== 'You') {
+          players.add(player.player);
+        }
+      });
+    }
+  });
+  return Array.from(players).sort();
+}
+
+// Function to find matches where both players played together
+function findDuoMatches(player1, player2) {
+  const duoMatches = [];
+  leagueData.matches.forEach(match => {
+    if (match.playerRoster) {
+      const player1Found = match.playerRoster.find(p => p.player === player1);
+      const player2Found = match.playerRoster.find(p => p.player === player2);
+      
+      // Check if both players were on the same team (positions 1-5 or 6-10)
+      if (player1Found && player2Found) {
+        const player1Team = player1Found.position <= 5 ? 'team1' : 'team2';
+        const player2Team = player2Found.position <= 5 ? 'team1' : 'team2';
+        
+        if (player1Team === player2Team) {
+          duoMatches.push({
+            match: match,
+            player1Data: player1Found,
+            player2Data: player2Found,
+            win: player1Team === 'team1' ? match.win : !match.win
+          });
+        }
+      }
+    }
+  });
+  return duoMatches;
+}
+
+// Function to simulate duo compatibility using AI-like algorithm
+function simulateDuoDraft() {
+  const player1 = $('#player1Search').val().trim();
+  const player2 = $('#player2Search').val().trim();
+  
+  if (!player1 || !player2) {
+    alert('Please enter both player names!');
+    return;
+  }
+  
+  // Find matches where they played together
+  const duoMatches = findDuoMatches(player1, player2);
+  
+  if (duoMatches.length === 0) {
+    // If no historical matches, show message and create a prediction based on individual stats
+    showDuoResults(player1, player2, [], null);
+    return;
+  }
+  
+  // Calculate statistics
+  let wins = 0;
+  let totalMatches = duoMatches.length;
+  let avgScore1 = 0;
+  let avgScore2 = 0;
+  let avgKDA1 = 0;
+  let avgKDA2 = 0;
+  let combinedAvgScore = 0;
+  
+  duoMatches.forEach(duo => {
+    if (duo.win) wins++;
+    avgScore1 += duo.player1Data.score || 0;
+    avgScore2 += duo.player2Data.score || 0;
+    const kda1 = ((duo.player1Data.kills || 0) + (duo.player1Data.assists || 0)) / Math.max(duo.player1Data.deaths || 1, 1);
+    const kda2 = ((duo.player2Data.kills || 0) + (duo.player2Data.assists || 0)) / Math.max(duo.player2Data.deaths || 1, 1);
+    avgKDA1 += kda1;
+    avgKDA2 += kda2;
+    combinedAvgScore += ((duo.player1Data.score || 0) + (duo.player2Data.score || 0)) / 2;
+  });
+  
+  avgScore1 /= totalMatches;
+  avgScore2 /= totalMatches;
+  avgKDA1 /= totalMatches;
+  avgKDA2 /= totalMatches;
+  combinedAvgScore /= totalMatches;
+  
+  const winRate = (wins / totalMatches) * 100;
+  
+  // AI Simulation: Predict future win rate
+  // Factors: Historical win rate (40%), Combined average score (30%), Individual KDA synergy (20%), Sample size (10%)
+  const baseWinRate = winRate;
+  const scoreBonus = Math.min((combinedAvgScore - 75) / 2, 10); // Max +10% if score > 75
+  const kdaSynergy = Math.min((avgKDA1 + avgKDA2 - 2) * 2, 10); // Max +10% if combined KDA > 2
+  const sampleSizeBonus = Math.min(totalMatches * 0.5, 5); // Up to +5% for larger sample
+  
+  const predictedWinRate = baseWinRate * 0.4 + 
+                          (50 + scoreBonus) * 0.3 + 
+                          (50 + kdaSynergy) * 0.2 + 
+                          (50 + sampleSizeBonus) * 0.1;
+  
+  const clampedWinRate = Math.max(20, Math.min(90, predictedWinRate)); // Clamp between 20% and 90%
+  
+  // Generate AI analysis
+  const analysis = generateDuoAnalysis(player1, player2, duoMatches, winRate, clampedWinRate, combinedAvgScore, avgKDA1, avgKDA2, totalMatches);
+  
+  showDuoResults(player1, player2, duoMatches, {
+    historicalWinRate: winRate,
+    predictedWinRate: clampedWinRate,
+    totalMatches: totalMatches,
+    avgScore1: avgScore1,
+    avgScore2: avgScore2,
+    avgKDA1: avgKDA1,
+    avgKDA2: avgKDA2,
+    combinedAvgScore: combinedAvgScore,
+    analysis: analysis
+  });
+}
+
+// Function to generate AI analysis of duo compatibility
+function generateDuoAnalysis(player1, player2, duoMatches, historicalWinRate, predictedWinRate, combinedScore, avgKDA1, avgKDA2, matchCount) {
+  let analysis = [];
+  
+  if (matchCount === 0) {
+    analysis.push(`No historical matches found for ${player1} and ${player2}. This analysis is based on individual performance patterns.`);
+    analysis.push(`Try searching with players who have played together in your match history.`);
+    return analysis;
+  }
+  
+  analysis.push(`📊 **Match History**: Found ${matchCount} game${matchCount !== 1 ? 's' : ''} played together.`);
+  analysis.push(`Historical Win Rate: ${historicalWinRate.toFixed(1)}%`);
+  analysis.push(`Predicted Future Win Rate: ${predictedWinRate.toFixed(1)}%`);
+  
+  // Win rate analysis
+  if (predictedWinRate >= 65) {
+    analysis.push(`\n🔥 **Strong Duo**: These two players have excellent synergy! Their predicted win rate suggests they'd win most games together.`);
+  } else if (predictedWinRate >= 55) {
+    analysis.push(`\n✅ **Good Duo**: This pairing shows solid potential. They work well together and should maintain a positive win rate.`);
+  } else if (predictedWinRate >= 45) {
+    analysis.push(`\n⚠️ **Average Duo**: Mixed results suggest this duo might need more coordination. Consider practicing together more.`);
+  } else {
+    analysis.push(`\n❌ **Challenging Duo**: Based on historical data, this pairing may struggle. Focus on communication and role synergy.`);
+  }
+  
+  // Score analysis
+  if (combinedScore >= 85) {
+    analysis.push(`Both players consistently perform at high levels together (avg score: ${combinedScore.toFixed(1)}), indicating strong gameplay synergy.`);
+  } else if (combinedScore >= 75) {
+    analysis.push(`Their combined performance is solid (avg score: ${combinedScore.toFixed(1)}), showing they can contribute effectively together.`);
+  } else {
+    analysis.push(`Performance could be improved (avg score: ${combinedScore.toFixed(1)}). Consider working on individual mechanics and team coordination.`);
+  }
+  
+  // KDA analysis
+  const avgKDA = (avgKDA1 + avgKDA2) / 2;
+  if (avgKDA >= 2.5) {
+    analysis.push(`Strong KDA synergy (combined avg: ${avgKDA.toFixed(2)}) suggests they complement each other's playstyles well.`);
+  } else if (avgKDA >= 1.5) {
+    analysis.push(`Decent KDA performance (combined avg: ${avgKDA.toFixed(2)}) with room for improvement in coordination.`);
+  } else {
+    analysis.push(`Lower KDA numbers (combined avg: ${avgKDA.toFixed(2)}) indicate they may need to work on staying alive and securing kills together.`);
+  }
+  
+  // Sample size note
+  if (matchCount < 5) {
+    analysis.push(`\n⚠️ Note: Limited sample size (${matchCount} game${matchCount !== 1 ? 's' : ''}). More games together would provide more accurate predictions.`);
+  }
+  
+  return analysis;
+}
+
+// Function to display duo draft results
+function showDuoResults(player1, player2, duoMatches, stats) {
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-6">';
+  html += '<h3 class="text-xl font-bold text-gray-100">Duo Analysis Results</h3>';
+  
+  if (stats) {
+    // Win Rate Display
+    html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4">';
+    html += '<div class="text-gray-400 text-sm mb-1">Historical Win Rate</div>';
+    const historicalColor = stats.historicalWinRate >= 50 ? 'text-emerald-400' : 'text-red-400';
+    html += `<div class="text-3xl font-bold ${historicalColor}">${stats.historicalWinRate.toFixed(1)}%</div>`;
+    html += `<div class="text-gray-500 text-xs mt-1">${stats.totalMatches} game${stats.totalMatches !== 1 ? 's' : ''} together</div>`;
+    html += '</div>';
+    
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4">';
+    html += '<div class="text-gray-400 text-sm mb-1">Predicted Win Rate</div>';
+    const predictedColor = stats.predictedWinRate >= 50 ? 'text-emerald-400' : 'text-red-400';
+    html += `<div class="text-3xl font-bold ${predictedColor}">${stats.predictedWinRate.toFixed(1)}%</div>`;
+    html += '<div class="text-gray-500 text-xs mt-1">AI Simulation</div>';
+    html += '</div>';
+    html += '</div>';
+    
+    // Stats Display
+    html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3">';
+    html += '<div class="text-gray-400 text-xs mb-1">Player 1 Avg Score</div>';
+    html += `<div class="text-lg font-bold text-gray-200">${stats.avgScore1.toFixed(1)}</div>`;
+    html += '</div>';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3">';
+    html += '<div class="text-gray-400 text-xs mb-1">Player 2 Avg Score</div>';
+    html += `<div class="text-lg font-bold text-gray-200">${stats.avgScore2.toFixed(1)}</div>`;
+    html += '</div>';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3">';
+    html += '<div class="text-gray-400 text-xs mb-1">Combined Avg Score</div>';
+    html += `<div class="text-lg font-bold text-sky-400">${stats.combinedAvgScore.toFixed(1)}</div>`;
+    html += '</div>';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3">';
+    html += '<div class="text-gray-400 text-xs mb-1">Avg Combined KDA</div>';
+    html += `<div class="text-lg font-bold text-gray-200">${((stats.avgKDA1 + stats.avgKDA2) / 2).toFixed(2)}</div>`;
+    html += '</div>';
+    html += '</div>';
+    
+    // AI Analysis
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+    html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">AI Analysis</h4>';
+    html += '<div class="text-gray-300 text-sm space-y-2">';
+    stats.analysis.forEach(line => {
+      html += `<p class="whitespace-pre-line">${line}</p>`;
+    });
+    html += '</div>';
+    html += '</div>';
+    
+    // Match History (if available)
+    if (duoMatches.length > 0) {
+      html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+      html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">Matches Played Together</h4>';
+      html += '<div class="space-y-2 max-h-60 overflow-y-auto">';
+      duoMatches.slice(0, 10).forEach((duo, idx) => {
+        const winClass = duo.win ? 'border-emerald-500 bg-emerald-500/10' : 'border-red-500 bg-red-500/10';
+        const winText = duo.win ? 'Victory' : 'Defeat';
+        const winTextColor = duo.win ? 'text-emerald-400' : 'text-red-400';
+        html += `<div class="border rounded-lg p-3 ${winClass}">`;
+        html += `<div class="flex justify-between items-center">`;
+        html += `<div>`;
+        html += `<div class="text-sm font-semibold text-gray-200">${duo.match.date}</div>`;
+        html += `<div class="text-xs text-gray-400">${duo.match.champion} (${duo.match.role})</div>`;
+        html += `</div>`;
+        html += `<div class="${winTextColor} font-bold">${winText}</div>`;
+        html += `</div>`;
+        html += `</div>`;
+      });
+      if (duoMatches.length > 10) {
+        html += `<div class="text-gray-400 text-sm text-center mt-2">... and ${duoMatches.length - 10} more</div>`;
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+  } else {
+    html += '<div class="bg-slate-900 border border-yellow-500 rounded-lg p-5">';
+    html += '<p class="text-yellow-400 font-semibold mb-2">⚠️ No Historical Data Found</p>';
+    html += `<p class="text-gray-300 text-sm">Could not find any matches where ${player1} and ${player2} played together on the same team.</p>`;
+    html += '<p class="text-gray-400 text-xs mt-2">Available players in match history:</p>';
+    const availablePlayers = getAllPlayersFromMatches();
+    if (availablePlayers.length > 0) {
+      html += '<div class="mt-2 flex flex-wrap gap-2">';
+      availablePlayers.slice(0, 20).forEach(player => {
+        html += `<span class="px-2 py-1 bg-slate-800 text-gray-300 text-xs rounded">${player}</span>`;
+      });
+      if (availablePlayers.length > 20) {
+        html += `<span class="text-gray-500 text-xs">+${availablePlayers.length - 20} more</span>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  
+  $('#duoResults').html(html).removeClass('hidden');
+}
+
+// Function to display Champion Picker game
+function displayChampionPicker() {
+  let html = '<div class="space-y-6">';
+  
+  // Back button
+  html += '<button onclick="displayMiniGame()" class="text-sky-400 hover:text-sky-300 transition-colors mb-4 flex items-center gap-2">';
+  html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>';
+  html += 'Back to Mini Games';
+  html += '</button>';
+  
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-2">Champion Picker</h2>';
+  html += '<p class="text-gray-400 mb-6">Get a smart recommendation for which champion to play based on your match history!</p>';
+  
+  // Options
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">';
+  html += '<div class="space-y-4">';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Pick for Role</label>';
+  html += '<select id="championPickerRole" class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors">';
+  html += '<option value="">Any Role</option>';
+  html += '<option value="Top">Top</option>';
+  html += '<option value="Jungle">Jungle</option>';
+  html += '<option value="Mid">Mid</option>';
+  html += '<option value="Bot">Bot</option>';
+  html += '<option value="Support">Support</option>';
+  html += '</select>';
+  html += '</div>';
+  html += '<div>';
+  html += '<label class="flex items-center gap-2 text-gray-300 text-sm">';
+  html += '<input type="checkbox" id="preferHighWinRate" class="w-4 h-4 text-sky-600 bg-slate-900 border-slate-600 rounded focus:ring-sky-500" />';
+  html += '<span>Prefer champions with high win rate</span>';
+  html += '</label>';
+  html += '</div>';
+  html += '<button onclick="pickChampion()" class="w-full px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg transition-colors">';
+  html += '🎲 Pick My Champion!';
+  html += '</button>';
+  html += '</div>';
+  html += '</div>';
+  
+  // Results container
+  html += '<div id="championPickerResults" class="hidden">';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#dynamicContent').html(html);
+}
+
+// Function to pick a champion based on user stats
+function pickChampion() {
+  const role = $('#championPickerRole').val();
+  const preferHighWinRate = $('#preferHighWinRate').is(':checked');
+  
+  // Get all champions from match history with stats
+  const championStats = {};
+  
+  leagueData.matches.forEach(match => {
+    if (!match.champion) return;
+    
+    const champName = match.champion;
+    if (!championStats[champName]) {
+      championStats[champName] = {
+        name: champName,
+        games: 0,
+        wins: 0,
+        avgScore: 0,
+        roles: new Set(),
+        totalScore: 0
+      };
+    }
+    
+    // Filter by role if specified
+    if (role && match.role !== role) return;
+    
+    championStats[champName].games++;
+    if (match.win) championStats[champName].wins++;
+    if (match.role) championStats[champName].roles.add(match.role);
+    if (match.score !== undefined) {
+      championStats[champName].totalScore += match.score;
+    }
+  });
+  
+  // Calculate win rates and averages
+  Object.keys(championStats).forEach(champ => {
+    const stats = championStats[champ];
+    stats.winRate = stats.games > 0 ? (stats.wins / stats.games) * 100 : 0;
+    stats.avgScore = stats.games > 0 ? stats.totalScore / stats.games : 0;
+  });
+  
+  // Get list of all champions (use most played champions + champions from matches)
+  const allChampions = new Set();
+  leagueData.mostPlayedChampions.forEach(champ => allChampions.add(champ.name));
+  Object.keys(championStats).forEach(champ => allChampions.add(champ));
+  
+  // If no matches found with role filter, use all champions
+  let candidates = Array.from(allChampions);
+  
+  // Filter by role if specified
+  if (role && Object.keys(championStats).length > 0) {
+    candidates = Object.keys(championStats).filter(champ => {
+      return championStats[champ].roles.has(role) || championStats[champ].games === 0;
+    });
+    // If no matches with that role, fall back to all champions
+    if (candidates.length === 0) {
+      candidates = Array.from(allChampions);
+    }
+  }
+  
+  // Weight champions based on preferences
+  let weightedChampions = [];
+  candidates.forEach(champ => {
+    const stats = championStats[champ] || { games: 0, winRate: 50, avgScore: 75 };
+    let weight = 1;
+    
+    // Boost weight for champions with history
+    if (stats.games > 0) {
+      weight += 2; // Prefer champions you've played
+      
+      // If prefer high win rate, boost those
+      if (preferHighWinRate && stats.winRate >= 55) {
+        weight += stats.winRate / 10; // More weight for higher win rate
+      } else if (!preferHighWinRate) {
+        // If not preferring high win rate, include variety (even new champs)
+        weight += 1;
+      }
+      
+      // Slight boost for champions with good average scores
+      if (stats.avgScore >= 80) {
+        weight += 1;
+      }
+    } else {
+      // New champions get some weight too (for variety)
+      weight += 0.5;
+    }
+    
+    // Add multiple entries for weighted random selection
+    for (let i = 0; i < Math.ceil(weight * 10); i++) {
+      weightedChampions.push(champ);
+    }
+  });
+  
+  // Pick random champion
+  const randomIndex = Math.floor(Math.random() * weightedChampions.length);
+  const pickedChampion = weightedChampions[randomIndex];
+  const pickedStats = championStats[pickedChampion] || { games: 0, winRate: 0, avgScore: 0 };
+  
+  // Generate recommendation message
+  let recommendation = [];
+  if (pickedStats.games === 0) {
+    recommendation.push(`🎲 **${pickedChampion}** - New Champion Pick!`);
+    recommendation.push('This is a champion you haven\'t played yet. Time to expand your champion pool!');
+  } else {
+    recommendation.push(`🎲 **${pickedChampion}** - Your Smart Pick!`);
+    recommendation.push(`You've played ${pickedStats.games} game${pickedStats.games !== 1 ? 's' : ''} with ${pickedChampion}.`);
+    recommendation.push(`Win Rate: ${pickedStats.winRate.toFixed(1)}%`);
+    if (pickedStats.avgScore > 0) {
+      recommendation.push(`Average Score: ${pickedStats.avgScore.toFixed(1)}`);
+    }
+    
+    if (pickedStats.winRate >= 60) {
+      recommendation.push('\n🔥 Excellent choice! This champion has been performing well for you.');
+    } else if (pickedStats.winRate >= 50) {
+      recommendation.push('\n✅ Good pick! This champion has a positive win rate in your hands.');
+    } else if (pickedStats.winRate > 0) {
+      recommendation.push('\n💪 Challenge yourself! This champion could use more practice to improve your win rate.');
+    }
+    
+    if (pickedStats.roles.size > 0) {
+      const rolesList = Array.from(pickedStats.roles).join(', ');
+      recommendation.push(`\nCan be played in: ${rolesList}`);
+    }
+  }
+  
+  showChampionPickerResults(pickedChampion, recommendation, pickedStats);
+}
+
+// Function to display champion picker results
+function showChampionPickerResults(champion, recommendation, stats) {
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-6">';
+  html += '<h3 class="text-2xl font-bold text-gray-100 mb-4">Your Champion Pick</h3>';
+  
+  html += '<div class="bg-slate-900 border border-sky-500 rounded-lg p-6 text-center">';
+  html += `<div class="text-6xl mb-4">🎲</div>`;
+  html += `<h4 class="text-3xl font-bold text-sky-400 mb-2">${champion}</h4>`;
+  if (stats.games > 0) {
+    const winRateColor = stats.winRate >= 60 ? 'text-emerald-400' : stats.winRate >= 50 ? 'text-yellow-400' : 'text-gray-400';
+    html += `<div class="text-lg ${winRateColor} font-semibold">${stats.winRate.toFixed(1)}% Win Rate</div>`;
+  } else {
+    html += '<div class="text-lg text-gray-400 font-semibold">New Champion</div>';
+  }
+  html += '</div>';
+  
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">Recommendation</h4>';
+  html += '<div class="text-gray-300 text-sm space-y-2">';
+  recommendation.forEach(line => {
+    html += `<p class="whitespace-pre-line">${line}</p>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  if (stats.games > 0) {
+    html += '<div class="grid grid-cols-3 gap-4">';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
+    html += '<div class="text-gray-400 text-xs mb-1">Games Played</div>';
+    html += `<div class="text-2xl font-bold text-gray-200">${stats.games}</div>`;
+    html += '</div>';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
+    html += '<div class="text-gray-400 text-xs mb-1">Wins</div>';
+    html += `<div class="text-2xl font-bold text-emerald-400">${stats.wins}</div>`;
+    html += '</div>';
+    html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
+    html += '<div class="text-gray-400 text-xs mb-1">Losses</div>';
+    html += `<div class="text-2xl font-bold text-red-400">${stats.games - stats.wins}</div>`;
+    html += '</div>';
+    html += '</div>';
+  }
+  
+  html += '<button onclick="pickChampion()" class="w-full px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg transition-colors">';
+  html += '🎲 Pick Another Champion';
+  html += '</button>';
+  
+  html += '</div>';
+  
+  $('#championPickerResults').html(html).removeClass('hidden');
+}
+
+// Function to display Match Predictor game
+function displayMatchPredictor() {
+  let html = '<div class="space-y-6">';
+  
+  // Back button
+  html += '<button onclick="displayMiniGame()" class="text-sky-400 hover:text-sky-300 transition-colors mb-4 flex items-center gap-2">';
+  html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>';
+  html += 'Back to Mini Games';
+  html += '</button>';
+  
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-2">Match Predictor</h2>';
+  html += '<p class="text-gray-400 mb-6">Enter team compositions to predict the match outcome!</p>';
+  
+  // Team Composition Forms
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">';
+  
+  // Your Team
+  html += '<div class="bg-slate-800 border border-emerald-500/30 rounded-lg p-6">';
+  html += '<h3 class="text-lg font-semibold text-emerald-400 mb-4">Your Team</h3>';
+  html += '<div class="space-y-3">';
+  ['Top', 'Jungle', 'Mid', 'Bot', 'Support'].forEach((role, idx) => {
+    html += `<div>`;
+    html += `<label class="block text-gray-300 text-sm font-medium mb-1">${role}</label>`;
+    html += `<input type="text" id="yourTeam${idx}" placeholder="Champion name..." class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-emerald-500 transition-colors" />`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  // Enemy Team
+  html += '<div class="bg-slate-800 border border-red-500/30 rounded-lg p-6">';
+  html += '<h3 class="text-lg font-semibold text-red-400 mb-4">Enemy Team</h3>';
+  html += '<div class="space-y-3">';
+  ['Top', 'Jungle', 'Mid', 'Bot', 'Support'].forEach((role, idx) => {
+    html += `<div>`;
+    html += `<label class="block text-gray-300 text-sm font-medium mb-1">${role}</label>`;
+    html += `<input type="text" id="enemyTeam${idx}" placeholder="Champion name..." class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-red-500 transition-colors" />`;
+    html += `</div>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  html += '</div>'; // Close grid
+  
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+  html += '<button onclick="predictMatch()" class="w-full px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg transition-colors">';
+  html += '🔮 Predict Match Outcome';
+  html += '</button>';
+  html += '</div>';
+  
+  // Results container
+  html += '<div id="matchPredictorResults" class="hidden">';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#dynamicContent').html(html);
+}
+
+// Function to predict match outcome
+function predictMatch() {
+  const yourTeam = [];
+  const enemyTeam = [];
+  
+  // Collect team compositions
+  for (let i = 0; i < 5; i++) {
+    const yourChamp = $(`#yourTeam${i}`).val().trim();
+    const enemyChamp = $(`#enemyTeam${i}`).val().trim();
+    if (yourChamp) yourTeam.push({ champion: yourChamp, role: ['Top', 'Jungle', 'Mid', 'Bot', 'Support'][i] });
+    if (enemyChamp) enemyTeam.push({ champion: enemyChamp, role: ['Top', 'Jungle', 'Mid', 'Bot', 'Support'][i] });
+  }
+  
+  if (yourTeam.length === 0 && enemyTeam.length === 0) {
+    alert('Please enter at least some champions for prediction!');
+    return;
+  }
+  
+  // Calculate your team strength based on your performance
+  let yourTeamStrength = 0;
+  let yourChampionsFound = 0;
+  
+  yourTeam.forEach(({ champion, role }) => {
+    const champMatches = leagueData.matches.filter(m => 
+      m.champion && m.champion.toLowerCase() === champion.toLowerCase()
+    );
+    
+    if (champMatches.length > 0) {
+      yourChampionsFound++;
+      const wins = champMatches.filter(m => m.win).length;
+      const winRate = (wins / champMatches.length) * 100;
+      const avgScore = champMatches.reduce((sum, m) => sum + (m.score || 75), 0) / champMatches.length;
+      
+      // Add to team strength (win rate and score combined)
+      yourTeamStrength += (winRate * 0.6) + ((avgScore / 100) * 40);
+    } else {
+      // Unknown champion - use base 50% (neutral)
+      yourTeamStrength += 50;
+    }
+  });
+  
+  // Average team strength
+  if (yourTeam.length > 0) {
+    yourTeamStrength = yourTeamStrength / yourTeam.length;
+  } else {
+    yourTeamStrength = 50; // Default if no team entered
+  }
+  
+  // Enemy team strength (randomized since we don't have their data, but consider composition)
+  const enemyTeamStrength = 45 + Math.random() * 15; // Between 45-60% (slightly favoring you for fun)
+  
+  // Calculate win probability
+  let winProbability = 50; // Base 50%
+  
+  // Adjust based on your team strength vs enemy
+  const strengthDiff = yourTeamStrength - enemyTeamStrength;
+  winProbability = 50 + (strengthDiff * 0.8); // Convert strength difference to win probability
+  
+  // Bonus if you're playing a champion you're good at
+  if (yourChampionsFound === yourTeam.length && yourTeam.length > 0) {
+    winProbability += 5; // Small bonus for playing all champions you know
+  }
+  
+  // Clamp between 20% and 80%
+  winProbability = Math.max(20, Math.min(80, winProbability));
+  
+  // Generate analysis
+  const analysis = generateMatchAnalysis(yourTeam, enemyTeam, yourTeamStrength, enemyTeamStrength, winProbability, yourChampionsFound, yourTeam.length);
+  
+  showMatchPredictorResults(winProbability, analysis, yourTeam, enemyTeam);
+}
+
+// Function to generate match analysis
+function generateMatchAnalysis(yourTeam, enemyTeam, yourStrength, enemyStrength, winProb, championsFound, totalTeam) {
+  let analysis = [];
+  
+  analysis.push(`📊 **Match Prediction**: ${winProb.toFixed(1)}% chance to win`);
+  
+  if (winProb >= 65) {
+    analysis.push(`\n🔥 **Strong Advantage**: Your team composition and your personal performance history suggest a high likelihood of victory!`);
+  } else if (winProb >= 55) {
+    analysis.push(`\n✅ **Slight Advantage**: You have a decent chance to win this match. Play smart and capitalize on your advantages.`);
+  } else if (winProb >= 45) {
+    analysis.push(`\n⚖️ **Even Match**: This looks like a close game. Focus on objectives and team coordination.`);
+  } else {
+    analysis.push(`\n⚠️ **Underdog**: This will be a challenging match. Focus on farming, vision control, and wait for enemy mistakes.`);
+  }
+  
+  if (totalTeam > 0) {
+    const familiarityRate = (championsFound / totalTeam) * 100;
+    analysis.push(`\n📈 **Champion Familiarity**: ${championsFound}/${totalTeam} champions in your team are in your match history.`);
+    
+    if (familiarityRate >= 80) {
+      analysis.push(`Excellent team composition! You're playing champions you're experienced with, which boosts your chances.`);
+    } else if (familiarityRate >= 50) {
+      analysis.push(`Good mix of familiar and new champions. Consider focusing on your comfort picks.`);
+    } else {
+      analysis.push(`Consider swapping some champions for ones you have more experience with to increase your win probability.`);
+    }
+  }
+  
+  if (yourTeam.length < 5) {
+    analysis.push(`\n💡 Note: A complete team composition with all 5 roles filled would give more accurate predictions.`);
+  }
+  
+  return analysis;
+}
+
+// Function to display match predictor results
+function showMatchPredictorResults(winProbability, analysis, yourTeam, enemyTeam) {
+  const willWin = winProbability >= 50;
+  const resultColor = willWin ? 'emerald' : 'red';
+  const resultText = willWin ? 'VICTORY' : 'DEFEAT';
+  const resultEmoji = willWin ? '🏆' : '😔';
+  
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-6">';
+  html += '<h3 class="text-2xl font-bold text-gray-100 mb-4">Match Prediction Result</h3>';
+  
+  const borderColorClass = resultColor === 'emerald' ? 'border-emerald-500' : 'border-red-500';
+  const textColorClass = resultColor === 'emerald' ? 'text-emerald-400' : 'text-red-400';
+  html += `<div class="bg-slate-900 border-2 ${borderColorClass} rounded-lg p-8 text-center">`;
+  html += `<div class="text-6xl mb-4">${resultEmoji}</div>`;
+  html += `<h4 class="text-4xl font-bold ${textColorClass} mb-2">${winProbability.toFixed(1)}%</h4>`;
+  html += `<div class="text-xl text-gray-300 font-semibold">Predicted ${resultText}</div>`;
+  html += '</div>';
+  
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">Analysis</h4>';
+  html += '<div class="text-gray-300 text-sm space-y-2">';
+  analysis.forEach(line => {
+    html += `<p class="whitespace-pre-line">${line}</p>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#matchPredictorResults').html(html).removeClass('hidden');
+}
+
+// Function to display Rank Calculator game
+function displayRankCalculator() {
+  let html = '<div class="space-y-6">';
+  
+  // Back button
+  html += '<button onclick="displayMiniGame()" class="text-sky-400 hover:text-sky-300 transition-colors mb-4 flex items-center gap-2">';
+  html += '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>';
+  html += 'Back to Mini Games';
+  html += '</button>';
+  
+  html += '<h2 class="text-2xl font-bold text-gray-100 mb-2">Rank Calculator</h2>';
+  html += '<p class="text-gray-400 mb-6">Calculate your rank progression and plan your climb!</p>';
+  
+  // Current Rank Display
+  const currentRank = leagueData.currentRank;
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">';
+  html += '<h3 class="text-lg font-semibold text-gray-100 mb-4">Current Rank</h3>';
+  if (currentRank) {
+    html += `<div class="text-2xl font-bold text-sky-400 mb-1">${currentRank.tier} ${currentRank.division}</div>`;
+    html += `<div class="text-gray-400">${currentRank.lp} LP</div>`;
+  } else {
+    html += '<div class="text-gray-400">No rank data available</div>';
+  }
+  html += '</div>';
+  
+  // Calculator Form
+  html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 mb-6">';
+  html += '<h3 class="text-lg font-semibold text-gray-100 mb-4">Calculate Progress</h3>';
+  html += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Average LP Gain per Win</label>';
+  html += '<input type="number" id="lpGain" value="18" min="10" max="30" class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Average LP Loss per Defeat</label>';
+  html += '<input type="number" id="lpLoss" value="18" min="10" max="30" class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Win Rate (%)</label>';
+  html += '<input type="number" id="winRate" value="55" min="0" max="100" class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '<div>';
+  html += '<label class="block text-gray-300 text-sm font-medium mb-2">Target: Games to Play</label>';
+  html += '<input type="number" id="gamesToPlay" value="10" min="1" max="100" class="w-full px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-gray-100 focus:outline-none focus:border-sky-500 transition-colors" />';
+  html += '</div>';
+  html += '</div>';
+  html += '<button onclick="calculateRankProgress()" class="w-full px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-semibold rounded-lg transition-colors">';
+  html += '📊 Calculate Rank Progress';
+  html += '</button>';
+  html += '</div>';
+  
+  // Results container
+  html += '<div id="rankCalculatorResults" class="hidden">';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#dynamicContent').html(html);
+}
+
+// Function to calculate rank progress
+function calculateRankProgress() {
+  const lpGain = parseFloat($('#lpGain').val()) || 18;
+  const lpLoss = parseFloat($('#lpLoss').val()) || 18;
+  const winRate = parseFloat($('#winRate').val()) || 50;
+  const gamesToPlay = parseInt($('#gamesToPlay').val()) || 10;
+  
+  if (winRate < 0 || winRate > 100) {
+    alert('Win rate must be between 0 and 100!');
+    return;
+  }
+  
+  // Calculate expected outcomes
+  const expectedWins = Math.round(gamesToPlay * (winRate / 100));
+  const expectedLosses = gamesToPlay - expectedWins;
+  
+  // Calculate net LP
+  const totalLPGain = expectedWins * lpGain;
+  const totalLPLoss = expectedLosses * lpLoss;
+  const netLP = totalLPGain - totalLPLoss;
+  
+  // Get current rank info
+  const currentRank = leagueData.currentRank;
+  const currentLP = currentRank ? currentRank.lp : 0;
+  const newLP = currentLP + netLP;
+  
+  // Calculate division progress
+  const lpPerDivision = 100;
+  const divisions = ['IV', 'III', 'II', 'I'];
+  let currentDivisionIndex = divisions.indexOf(currentRank?.division || 'IV');
+  let projectedDivision = currentRank?.division || 'IV';
+  let projectedLP = newLP;
+  
+  // Handle LP overflow into next division
+  while (projectedLP >= lpPerDivision && currentDivisionIndex < divisions.length - 1) {
+    projectedLP -= lpPerDivision;
+    currentDivisionIndex++;
+    projectedDivision = divisions[currentDivisionIndex];
+  }
+  
+  // Handle LP going negative (demotion risk)
+  while (projectedLP < 0 && currentDivisionIndex > 0) {
+    projectedLP += lpPerDivision;
+    currentDivisionIndex--;
+    projectedDivision = divisions[currentDivisionIndex];
+  }
+  
+  // Clamp LP between 0 and 100
+  projectedLP = Math.max(0, Math.min(100, projectedLP));
+  
+  const tier = currentRank?.tier || 'Unranked';
+  const finalRank = `${tier} ${projectedDivision}`;
+  
+  // Generate insights
+  const insights = generateRankInsights(netLP, expectedWins, expectedLosses, winRate, gamesToPlay, finalRank, currentRank?.division || 'IV', projectedDivision);
+  
+  showRankCalculatorResults({
+    currentLP: currentLP,
+    newLP: newLP,
+    netLP: netLP,
+    expectedWins: expectedWins,
+    expectedLosses: expectedLosses,
+    totalLPGain: totalLPGain,
+    totalLPLoss: totalLPLoss,
+    projectedLP: projectedLP,
+    projectedDivision: projectedDivision,
+    finalRank: finalRank,
+    tier: tier,
+    gamesToPlay: gamesToPlay,
+    winRate: winRate,
+    insights: insights
+  });
+}
+
+// Function to generate rank insights
+function generateRankInsights(netLP, wins, losses, winRate, games, finalRank, currentDiv, projectedDiv) {
+  let insights = [];
+  
+  insights.push(`📊 **Projection**: After ${games} games at ${winRate}% win rate:`);
+  insights.push(`Expected Wins: ${wins} | Expected Losses: ${losses}`);
+  insights.push(`Net LP Change: ${netLP > 0 ? '+' : ''}${netLP.toFixed(0)} LP`);
+  
+  if (netLP > 0) {
+    insights.push(`\n🎯 **Progress**: You're projected to gain ${Math.abs(netLP).toFixed(0)} LP!`);
+    if (projectedDiv !== currentDiv && projectedDiv === 'I') {
+      insights.push(`You'll reach ${finalRank}, which might qualify you for a promotion series!`);
+    } else if (projectedDiv !== currentDiv) {
+      insights.push(`You'll advance to ${finalRank}! Keep climbing!`);
+    }
+  } else if (netLP < 0) {
+    insights.push(`\n⚠️ **Warning**: You're projected to lose ${Math.abs(netLP).toFixed(0)} LP.`);
+    insights.push(`Consider improving your win rate or playing fewer games to minimize losses.`);
+  } else {
+    insights.push(`\n⚖️ **Neutral**: Your LP will remain roughly the same.`);
+    insights.push(`To climb, aim for a higher win rate or play more games with this win rate.`);
+  }
+  
+  if (winRate >= 60) {
+    insights.push(`\n🔥 Excellent win rate! At this pace, you'll climb steadily.`);
+  } else if (winRate >= 55) {
+    insights.push(`\n✅ Good win rate. You'll make progress, but it might be gradual.`);
+  } else if (winRate < 50) {
+    insights.push(`\n⚠️ Your win rate is below 50%. Focus on improvement before climbing.`);
+  }
+  
+  // Calculate games needed for promotion (if positive LP)
+  if (netLP > 0 && currentDiv !== 'I') {
+    const lpNeededForNextDiv = 100; // Assuming 100 LP per division
+    const lpToNextDiv = 100 - (leagueData.currentRank?.lp || 0) + (100 * (['IV', 'III', 'II', 'I'].indexOf(currentDiv) - 0));
+    const gamesNeeded = Math.ceil((lpNeededForNextDiv) / (netLP / games));
+    insights.push(`\n📈 At this rate, you'd need approximately ${gamesNeeded} games to reach the next division.`);
+  }
+  
+  return insights;
+}
+
+// Function to display rank calculator results
+function showRankCalculatorResults(data) {
+  const isPositive = data.netLP > 0;
+  const resultColor = isPositive ? 'emerald' : data.netLP < 0 ? 'red' : 'gray';
+  
+  let html = '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-6">';
+  html += '<h3 class="text-2xl font-bold text-gray-100 mb-4">Rank Progress Calculation</h3>';
+  
+  // Projected Rank Display
+  const borderColorClass = resultColor === 'emerald' ? 'border-emerald-500' : resultColor === 'red' ? 'border-red-500' : 'border-gray-500';
+  const textColorClass = resultColor === 'emerald' ? 'text-emerald-400' : resultColor === 'red' ? 'text-red-400' : 'text-gray-400';
+  html += `<div class="bg-slate-900 border-2 ${borderColorClass} rounded-lg p-6 text-center">`;
+  html += '<div class="text-gray-400 text-sm mb-2">Projected Rank After ' + data.gamesToPlay + ' Games</div>';
+  html += `<div class="text-3xl font-bold ${textColorClass} mb-1">${data.finalRank}</div>`;
+  html += `<div class="text-xl text-gray-300">${Math.round(data.projectedLP)} LP</div>`;
+  html += '</div>';
+  
+  // LP Breakdown
+  html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">Current LP</div>';
+  html += `<div class="text-2xl font-bold text-gray-200">${data.currentLP}</div>`;
+  html += '</div>';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">LP Gained</div>';
+  html += `<div class="text-2xl font-bold text-emerald-400">+${data.totalLPGain}</div>`;
+  html += '</div>';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">LP Lost</div>';
+  html += `<div class="text-2xl font-bold text-red-400">-${data.totalLPLoss}</div>`;
+  html += '</div>';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">Net Change</div>';
+  const netColor = isPositive ? 'text-emerald-400' : data.netLP < 0 ? 'text-red-400' : 'text-gray-400';
+  html += `<div class="text-2xl font-bold ${netColor}">${data.netLP > 0 ? '+' : ''}${Math.round(data.netLP)}</div>`;
+  html += '</div>';
+  html += '</div>';
+  
+  // Game Statistics
+  html += '<div class="grid grid-cols-3 gap-4">';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">Expected Wins</div>';
+  html += `<div class="text-2xl font-bold text-emerald-400">${data.expectedWins}</div>`;
+  html += '</div>';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">Expected Losses</div>';
+  html += `<div class="text-2xl font-bold text-red-400">${data.expectedLosses}</div>`;
+  html += '</div>';
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-4 text-center">';
+  html += '<div class="text-gray-400 text-xs mb-1">Win Rate</div>';
+  html += `<div class="text-2xl font-bold text-sky-400">${data.winRate}%</div>`;
+  html += '</div>';
+  html += '</div>';
+  
+  // Insights
+  html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
+  html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">Insights</h4>';
+  html += '<div class="text-gray-300 text-sm space-y-2">';
+  data.insights.forEach(line => {
+    html += `<p class="whitespace-pre-line">${line}</p>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  
+  html += '</div>';
+  
+  $('#rankCalculatorResults').html(html).removeClass('hidden');
 }
 
 // Handler for tab clicks - moved inside document ready to ensure proper initialization
@@ -1082,6 +3020,11 @@ function setupTabHandlers() {
       // Quests tab
       fetchLeagueData().then(() => {
         displayQuests();
+      });
+    } else if (tabId === 5) {
+      // Mini game tab
+      fetchLeagueData().then(() => {
+        displayMiniGame();
       });
     } else {
       // Other tabs
@@ -1183,13 +3126,22 @@ $(document).ready(function() {
   // Setup tab click handlers
   setupTabHandlers();
   
-  // Set first tab as active
-  $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+  // Check if URL has a match parameter and open that match
+  checkAndOpenMatchFromUrl();
   
-  // Initialize League data (mock for now, ready for API integration)
-  fetchLeagueData().then(() => {
-    displayOverview();
-  });
+  // Only set first tab as active and load overview if no match parameter exists
+  const urlParams = new URLSearchParams(window.location.search);
+  const matchId = urlParams.get('match');
+  
+  if (!matchId) {
+    // Set first tab as active
+    $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+    
+    // Initialize League data (mock for now, ready for API integration)
+    fetchLeagueData().then(() => {
+      displayOverview();
+    });
+  }
 });
 
 
