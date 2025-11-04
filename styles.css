@@ -1,0 +1,146 @@
+:root {
+  --primary-color:linear-gradient(135deg, #1E2328 0%, #0F1419 100%);
+  --secondary-color: #6C757D;
+  --background-color: #F8F9FA;
+  --text-color: #212529;
+  --border-radius: 5px;
+}
+
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color:#0e141b ;
+  background-image: url('Images/Background Art.jpg');
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
+  background-attachment: fixed;
+}
+.jumbotron {
+  background: #01162d;
+  color: rgb(255, 255, 255);
+  text-align: center;
+  padding: 40px 20px;
+}
+/* Legacy tab styles - scoped to avoid conflicts with navigation */
+.legacy-tabs {
+  display: flex;
+  justify-content: center;
+  background: #f8f9fa;
+  border-bottom: 2px solid #ddd;
+  flex-wrap: wrap;
+}
+.legacy-tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin: 2px;
+  background: #00085b;
+  border-radius: 5px;
+  color: white;
+}
+.legacy-tab:hover {
+  color: #0F1419; /* text color: blackish */
+  border-color: #C9AA71; /* gold border */
+  box-shadow: 0 0 20px rgba(201, 170, 113, 0.3); /* gold glow */
+  transform: translateY(-2px);
+  background: #fff8e1; /* optional soft gold background */
+  transition: all 0.2s ease;
+}
+.legacy-tab.active {
+  background: #007BFF;
+  color: white;
+  border-color: #007BFF;
+}
+.container {
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
+
+}
+.content-section {
+  padding: 20px;
+  margin: 15px 0;
+  background: #f1f1f1;
+  border-radius: 8px;
+}
+
+/* Futuristic Chart Styling */
+.futuristic-chart-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.futuristic-chart-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(90deg, transparent 0%, rgba(0, 128, 255, 0.1) 50%, transparent 100%),
+    linear-gradient(0deg, transparent 0%, rgba(0, 191, 255, 0.05) 50%, transparent 100%);
+  pointer-events: none;
+  z-index: 1;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Enhanced glow for canvas elements */
+#opScoreChart {
+  position: relative;
+  z-index: 2;
+}
+
+/* AI Trash Talk / Compliment Generator Styles */
+.active-ai-mode {
+  background-color: #0EA5E9 !important;
+  color: white !important;
+}
+
+.ai-mode-toggle:not(.active-ai-mode) {
+  background-color: #334155;
+  color: #CBD5E1;
+}
+
+.ai-mode-toggle:not(.active-ai-mode):hover {
+  background-color: #475569;
+}
+
+.ai-message-container {
+  animation: fadeIn 0.3s ease-in;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.6;
+}
+
+.ai-message-container p {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
