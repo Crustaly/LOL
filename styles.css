@@ -144,3 +144,47 @@ body {
 .fade-in {
   animation: fadeIn 0.3s ease-in;
 }
+
+/* Neon Text Effect for Victory/Defeat */
+.neon-text {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  animation: neonPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes neonPulse {
+  from {
+    opacity: 0.9;
+    filter: brightness(1);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1.2);
+  }
+}
+
+/* Enhanced Dropdown Styling */
+#region {
+  background-image: none;
+}
+
+#region option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  padding: 12px;
+}
+
+#region option:hover {
+  background-color: #334155;
+}
+
+#region option:checked {
+  background-color: #0ea5e9;
+  color: white;
+}
+
+#region:focus {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+/* Dropdown arrow rotation on focus - handled by JavaScript */

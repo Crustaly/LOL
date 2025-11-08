@@ -1,3 +1,25 @@
+// Utility function: Format date to readable format (e.g., "Jan 15, 2024")
+function formatDate(dateString) {
+  if (!dateString) return 'Unknown Date';
+  
+  try {
+    // Handle ISO format (YYYY-MM-DD) or timestamp
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return dateString; // Return original if invalid
+    }
+    
+    // Format as "Month Day, Year" (e.g., "Jan 15, 2024")
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    // If parsing fails, return original string
+    return dateString;
+  }
+}
+
 // Utility function: fetch weather for Troy, NY (latitude, longitude)
 function fetchTroyWeather() {
   // Coordinates for Troy, NY (approx)
@@ -35,7 +57,7 @@ let leagueData = {
 
 // User credentials storage
 let userCredentials = {
-  apiKey: 'RGAPI-c1ea0b6a-a037-435a-a2c9-19a3733bf7ee', // Default API key (Lambda requires it in request body)
+  apiKey: 'RGAPI-05088425-2edd-412a-88c1-cd1136ebba37', // Default API key (Lambda requires it in request body)
   gameName: null,
   tagLine: null,
   region: null
@@ -272,6 +294,39 @@ async function getPlayerStats(apiKey, name, tag, region) {
             diagnosticInfo += '• Missing required fields\n';
             diagnosticInfo += '• Invalid region code\n';
             errorMessage += diagnosticInfo;
+          } else if (response.status === 404 || response.status === 500) {
+            // Check if it's a 404 account not found error
+            if (errorMessage.includes('404') || errorMessage.includes('Account lookup failed')) {
+              console.error("🔍 ========== 404 ACCOUNT NOT FOUND DIAGNOSTICS ==========");
+              console.error("  The account could not be found. This usually means:");
+              console.error("  1. ACCOUNT NAME/TAG MISMATCH:");
+              console.error("     - The game name and tag line don't match any account");
+              console.error("     - Account name is case-sensitive (check capitalization)");
+              console.error("     - Account might have been renamed or deleted");
+              console.error("  📋 Current account check:");
+              console.error("     - Game Name:", `"${requestPayload.game_name}"`);
+              console.error("     - Tag Line:", `"${requestPayload.tag_line}"`);
+              console.error("     - Combined:", `"${requestPayload.game_name}#${requestPayload.tag_line}"`);
+              console.error("  2. REGION MISMATCH:");
+              console.error("     - Account exists but in a different region");
+              console.error("     - Try: americas, europe, or asia");
+              console.error("  📋 Current region check:");
+              console.error("     - Region:", `"${requestPayload.region}"`);
+              console.error("🔍 ==========================================");
+              
+              diagnosticInfo = '\n\n🔍 ACCOUNT NOT FOUND - Troubleshooting:\n';
+              diagnosticInfo += `1. Verify the account "${requestPayload.game_name}#${requestPayload.tag_line}" exists\n`;
+              diagnosticInfo += `   • Check the exact spelling and capitalization\n`;
+              diagnosticInfo += `   • Riot account names are case-sensitive\n`;
+              diagnosticInfo += `   • Make sure there are no extra spaces before/after the name\n`;
+              diagnosticInfo += `2. Try a different region:\n`;
+              diagnosticInfo += `   • Current region: "${requestPayload.region}"\n`;
+              diagnosticInfo += `   • Try: americas, europe, or asia\n`;
+              diagnosticInfo += `3. Verify the account is active and not banned\n`;
+              diagnosticInfo += `4. Check if the account name has special characters that need to be entered exactly\n`;
+              
+              errorMessage = `Account not found: "${requestPayload.game_name}#${requestPayload.tag_line}"` + diagnosticInfo;
+            }
           }
         }
       } catch (e) {
@@ -386,7 +441,7 @@ async function fetchLeagueData(showLoading = true, forceRefresh = false) {
         
         // Fetch player stats (match data, rank, champions, etc.)
         // Lambda requires api_key field in request body
-        const defaultApiKey = 'RGAPI-c1ea0b6a-a037-435a-a2c9-19a3733bf7ee';
+        const defaultApiKey = 'RGAPI-05088425-2edd-412a-88c1-cd1136ebba37';
         const apiKeyToUse = userCredentials.apiKey || defaultApiKey;
         
         console.log("📤 Calling getPlayerStats with:", {
@@ -1961,7 +2016,7 @@ function shareAIMessage(matchId) {
   if (!match) return;
   
   // Format as Discord-ready message with match context
-  const shareText = `${message}\n\n📊 ${match.champion} ${match.role} | ${match.kda} KDA | ${match.win ? 'Victory' : 'Defeat'} | ${match.date}`;
+  const shareText = `${message}\n\n📊 ${match.champion} ${match.role} | ${match.kda} KDA | ${match.win ? 'Victory' : 'Defeat'} | ${formatDate(match.date)}`;
   
   navigator.clipboard.writeText(shareText).then(() => {
     showCopyNotification('AI message copied to clipboard!');
@@ -1998,17 +2053,21 @@ function displayChampRoleOverview() {
   leagueData.matches.forEach((match, index) => {
     const winClass = match.win ? 'victory' : 'defeat';
     const winText = match.win ? 'Victory' : 'Defeat';
-    const winImage = match.win ? 'Images/Victory.png' : 'Images/Defeat.png';
-    const imageSize = match.win ? 'h-[512px]' : 'h-20';
     
     const borderColor = match.win ? 'border-emerald-500' : 'border-red-500';
     const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
     
+    // Neon text colors and glow effects
+    const neonColor = match.win ? '#10b981' : '#ef4444'; // emerald-500 for victory, red-500 for defeat
+    const neonGlow = match.win 
+      ? '0 0 10px #10b981, 0 0 20px #10b981, 0 0 30px #10b981, 0 0 40px #10b981' 
+      : '0 0 10px #ef4444, 0 0 20px #ef4444, 0 0 30px #ef4444, 0 0 40px #ef4444';
+    
     html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
-    html += '<div class="match-header flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
-    html += `<div class="h-12 w-16 flex items-center justify-center overflow-visible"><img src="${winImage}" alt="${winText}" class="${imageSize} w-auto object-contain"></div>`;
+    html += '<div class="match-header flex items-center gap-8 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
+    html += `<div class="h-12 w-20 flex items-center justify-center overflow-visible mr-4"><span class="neon-text font-bold text-lg uppercase tracking-wider" style="color: ${neonColor}; text-shadow: ${neonGlow};">${winText}</span></div>`;
     html += '<div class="flex-1">';
-    html += `<div class="text-xs text-gray-500">${match.date}</div>`;
+    html += `<div class="text-xs text-gray-500">${formatDate(match.date)}</div>`;
     html += `<div class="text-base font-semibold text-gray-100">${match.champion}</div>`;
     html += `<div class="text-xs text-gray-400">${match.role}</div>`;
     html += '</div>';
@@ -2474,25 +2533,110 @@ function calculateAndDisplayProfileStats(matches) {
     gameLengthCount++;
     
     // Get player stats from playerRoster if available
+    // Use the same robust player-finding logic as in mapAPIDataToLeagueData
+    let playerData = null;
+    
+    // Method 1: Look for isYou flag in playerRoster
     if (match.playerRoster && Array.isArray(match.playerRoster)) {
-      const playerData = match.playerRoster.find(p => p.isYou === true);
-      if (playerData) {
-        // Gold earned
-        if (playerData.goldEarned !== undefined) {
-          totalGoldEarned += playerData.goldEarned;
-          goldCount++;
-        }
-        
-        // Creep score - calculate from CS/min if available
-        if (playerData.csPerMin !== undefined) {
-          // Use actual game length if available, otherwise use estimated
-          const estimatedCS = playerData.csPerMin * gameLength;
-          totalCreepScore += estimatedCS;
-          csCount++;
-        }
+      playerData = match.playerRoster.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+    }
+    
+    // Method 2: Look in participants
+    if (!playerData && match.participants && Array.isArray(match.participants)) {
+      playerData = match.participants.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+    }
+    
+    // Method 3: Use playerData directly
+    if (!playerData && match.playerData) {
+      playerData = match.playerData;
+    }
+    
+    // Method 4: If playerRoster exists but no isYou flag, search by Riot ID (gameName#tagLine)
+    if (!playerData && match.playerRoster && Array.isArray(match.playerRoster) && match.playerRoster.length > 0) {
+      // Try to find by matching Riot ID (gameName#tagLine)
+      if (userCredentials.gameName && userCredentials.tagLine) {
+        const searchName = `${userCredentials.gameName}#${userCredentials.tagLine}`.toLowerCase();
+        playerData = match.playerRoster.find(p => {
+          const playerName = (p.player || p.riotId || p.gameName || p.name || '').toLowerCase();
+          return playerName.includes(searchName) || playerName.includes(userCredentials.gameName.toLowerCase());
+        });
+      }
+      // If still not found, try matching just the gameName
+      if (!playerData && userCredentials.gameName) {
+        const searchName = userCredentials.gameName.toLowerCase();
+        playerData = match.playerRoster.find(p => {
+          const playerName = (p.player || p.riotId || p.gameName || p.name || '').toLowerCase();
+          return playerName.includes(searchName);
+        });
+      }
+    }
+    
+    if (playerData) {
+      // Gold earned - check multiple possible property names
+      // goldEarned can be 0, so we check for !== undefined and !== null
+      const goldEarned = playerData.goldEarned !== undefined && playerData.goldEarned !== null 
+        ? playerData.goldEarned 
+        : (playerData.gold_earned !== undefined && playerData.gold_earned !== null 
+            ? playerData.gold_earned 
+            : (playerData.gold !== undefined && playerData.gold !== null ? playerData.gold : null));
+      
+      // Also check if gold might be stored directly on the match object
+      const matchGoldEarned = match.goldEarned !== undefined && match.goldEarned !== null
+        ? match.goldEarned
+        : (match.gold_earned !== undefined && match.gold_earned !== null
+            ? match.gold_earned
+            : (match.gold !== undefined && match.gold !== null ? match.gold : null));
+      
+      // Use playerData gold first, fallback to match gold
+      const finalGoldEarned = goldEarned !== null && goldEarned !== undefined ? goldEarned : matchGoldEarned;
+      
+      // Debug logging (only log first match to avoid spam)
+      if (goldCount === 0 && matches.indexOf(match) === 0) {
+        console.log('🔍 Gold Earned Debug - First Match:', {
+          playerDataFound: !!playerData,
+          playerDataKeys: playerData ? Object.keys(playerData) : [],
+          goldEarned: playerData?.goldEarned,
+          gold_earned: playerData?.gold_earned,
+          gold: playerData?.gold,
+          matchGoldEarned: match.goldEarned,
+          matchGold_earned: match.gold_earned,
+          matchGold: match.gold,
+          finalGoldEarned: finalGoldEarned,
+          playerRosterLength: match.playerRoster?.length,
+          matchKeys: Object.keys(match).slice(0, 10) // First 10 keys
+        });
+      }
+      
+      if (finalGoldEarned !== null && finalGoldEarned !== undefined) {
+        totalGoldEarned += Number(finalGoldEarned);
+        goldCount++;
+      }
+      
+      // Creep score - calculate from CS/min if available
+      if (playerData.csPerMin !== undefined) {
+        // Use actual game length if available, otherwise use estimated
+        const estimatedCS = playerData.csPerMin * gameLength;
+        totalCreepScore += estimatedCS;
+        csCount++;
+      }
+    } else {
+      // Debug: Log when playerData is not found (only for first few matches)
+      if (matches.indexOf(match) < 3) {
+        console.log(`⚠️ Gold Debug - Match ${matches.indexOf(match) + 1}: Player data not found`, {
+          hasPlayerRoster: !!match.playerRoster,
+          playerRosterLength: match.playerRoster?.length,
+          hasParticipants: !!match.participants,
+          participantsLength: match.participants?.length,
+          hasPlayerData: !!match.playerData,
+          gameName: userCredentials.gameName,
+          tagLine: userCredentials.tagLine
+        });
       }
     }
   });
+  
+  // Debug: Log summary of gold data collection
+  console.log(`💰 Gold Earned Summary: Found gold data in ${goldCount} out of ${matches.length} matches`);
   
   // Find most played champion(s) - handle ties
   const championValues = Object.values(championCounts);
@@ -2831,7 +2975,7 @@ function displayScore() {
                 const match = recentMatches[index];
                 if (!match) return 'Match Data';
                 const winText = match.win ? 'Victory' : 'Defeat';
-                return `${match.date} - ${winText}`;
+                return `${formatDate(match.date)} - ${winText}`;
               },
               label: function(context) {
                 // Return empty array to hide default label since we'll use afterBody
@@ -3369,7 +3513,7 @@ function showDuoResults(player1, player2, duoMatches, stats) {
         html += `<div class="border rounded-lg p-3 ${winClass}">`;
         html += `<div class="flex justify-between items-center">`;
         html += `<div>`;
-        html += `<div class="text-sm font-semibold text-gray-200">${duo.match.date}</div>`;
+        html += `<div class="text-sm font-semibold text-gray-200">${formatDate(duo.match.date)}</div>`;
         html += `<div class="text-xs text-gray-400">${duo.match.champion} (${duo.match.role})</div>`;
         html += `</div>`;
         html += `<div class="${winTextColor} font-bold">${winText}</div>`;
@@ -4205,11 +4349,109 @@ function initBannerCycling() {
   console.log('Banner cycling initialized with', bannerImages.length, 'images (crossfade enabled)');
 }
 
+// This function automatically cycles through different login splash art images with smooth crossfade
+let loginBgCycleInterval = null;
+
+function initLoginBackgroundCycling() {
+  // Array of login splash art image paths to cycle through
+  const loginImages = [
+    'Images/loginsplashart1.jpg',
+    'Images/loginsplashart2.jpg',
+    'Images/loginsplashart3.jpg',
+    'Images/loginsplashart4.jpg',
+    'Images/loginsplashart5.jpeg'
+  ];
+  
+  let currentLoginIndex = 0;
+  const loginBgElement1 = document.getElementById('loginBgImage1');
+  const loginBgElement2 = document.getElementById('loginBgImage2');
+  
+  // Check if login background elements exist
+  if (!loginBgElement1 || !loginBgElement2) {
+    console.warn('Login background elements not found');
+    return;
+  }
+  
+  // Track which image is currently visible (1 or 2)
+  let currentVisible = 1;
+  
+  // Set initial state: image 1 visible, image 2 hidden
+  loginBgElement1.style.opacity = '1';
+  loginBgElement1.style.zIndex = '2';
+  loginBgElement2.style.opacity = '0';
+  loginBgElement2.style.zIndex = '1';
+  
+  // Set initial image
+  loginBgElement1.src = loginImages[0];
+  
+  // Function to change to the next background image with crossfade
+  function changeLoginBackground() {
+    // Get the next image index
+    currentLoginIndex = (currentLoginIndex + 1) % loginImages.length;
+    const nextImageSrc = loginImages[currentLoginIndex];
+    
+    // Determine which image to update (the one that's currently hidden)
+    let imageToUpdate, imageToShow, imageToHide;
+    
+    if (currentVisible === 1) {
+      // Image 1 is visible, so update image 2 and fade it in
+      imageToUpdate = loginBgElement2;
+      imageToShow = loginBgElement2;
+      imageToHide = loginBgElement1;
+      currentVisible = 2;
+      // Bring image 2 to front
+      loginBgElement2.style.zIndex = '2';
+      loginBgElement1.style.zIndex = '1';
+    } else {
+      // Image 2 is visible, so update image 1 and fade it in
+      imageToUpdate = loginBgElement1;
+      imageToShow = loginBgElement1;
+      imageToHide = loginBgElement2;
+      currentVisible = 1;
+      // Bring image 1 to front
+      loginBgElement1.style.zIndex = '2';
+      loginBgElement2.style.zIndex = '1';
+    }
+    
+    // Set the new image source (this happens instantly while opacity is 0)
+    imageToUpdate.src = nextImageSrc;
+    
+    // Crossfade: fade out the visible image while fading in the new one
+    imageToHide.style.opacity = '0';
+    imageToShow.style.opacity = '1';
+  }
+  
+  // Clear any existing interval
+  if (loginBgCycleInterval) {
+    clearInterval(loginBgCycleInterval);
+  }
+  
+  // Start cycling: change background every 8 seconds (8000 milliseconds)
+  loginBgCycleInterval = setInterval(changeLoginBackground, 8000);
+  
+  // Preload all login background images for smoother transitions
+  loginImages.forEach(imagePath => {
+    const img = new Image();
+    img.src = imagePath;
+  });
+  
+  console.log('Login background cycling initialized with', loginImages.length, 'images (crossfade enabled)');
+}
+
+// Stop login background cycling
+function stopLoginBackgroundCycling() {
+  if (loginBgCycleInterval) {
+    clearInterval(loginBgCycleInterval);
+    loginBgCycleInterval = null;
+    console.log('Login background cycling stopped');
+  }
+}
+
 // On document ready, initialize League data and load default tab content
 // Save user credentials to localStorage
 function saveCredentials(apiKey, gameName, tagLine, region) {
   // Use default API key if not provided
-  const defaultApiKey = 'RGAPI-c1ea0b6a-a037-435a-a2c9-19a3733bf7ee';
+  const defaultApiKey = 'RGAPI-05088425-2edd-412a-88c1-cd1136ebba37';
   const credentials = { 
     apiKey: apiKey || defaultApiKey, 
     gameName, 
@@ -4250,6 +4492,8 @@ function clearCredentials() {
 function showLoginPage() {
   $('#loginPage').removeClass('hidden');
   $('#dashboardPage').addClass('hidden');
+  // Initialize login background cycling when login page is shown
+  initLoginBackgroundCycling();
   // Pre-populate form if credentials exist
   if (userCredentials.gameName) {
     $('#apiKey')?.val(userCredentials.apiKey || '');
@@ -4263,6 +4507,8 @@ function showLoginPage() {
 function showDashboard() {
   $('#loginPage').addClass('hidden');
   $('#dashboardPage').removeClass('hidden');
+  // Stop login background cycling when dashboard is shown
+  stopLoginBackgroundCycling();
 }
 
 // Handle logout
@@ -4288,6 +4534,8 @@ function handleLogout() {
   };
   showLoginPage();
   $('#dynamicContent').html('');
+  // Reload the page to ensure a clean state
+  location.reload();
 }
 
 // Handle login form submission
@@ -4308,33 +4556,34 @@ function handleLoginSubmit(e) {
   });
   
   const errorDiv = $('#loginError');
-  errorDiv.addClass('hidden').text('');
+  const errorSpan = errorDiv.find('span');
+  errorDiv.addClass('hidden');
+  errorSpan.text('');
   
   // Validate all fields including API key
   if (!apiKey || !apiKey.trim()) {
-    errorDiv.html(`
-      <div class="text-red-400">
-        <strong>⚠️ API Key Required</strong><br>
-        <small class="text-gray-400">Please enter your Riot API key. Get one from <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a></small>
-      </div>
-    `).removeClass('hidden');
+    errorSpan.html(`
+      <strong>⚠️ API Key Required</strong><br>
+      <small class="text-gray-400">Please enter your Riot API key. Get one from <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a></small>
+    `);
+    errorDiv.removeClass('hidden');
     return;
   }
   
   if (!gameName || !tagLine || !region) {
-    errorDiv.text(`Please fill in all fields. Missing: ${!gameName ? 'Game Name' : ''} ${!tagLine ? 'Tag Line' : ''} ${!region ? 'Region' : ''}`).removeClass('hidden');
+    errorSpan.text(`Please fill in all fields. Missing: ${!gameName ? 'Game Name' : ''} ${!tagLine ? 'Tag Line' : ''} ${!region ? 'Region' : ''}`);
+    errorDiv.removeClass('hidden');
     return;
   }
   
   // Validate API key format
   const trimmedApiKey = apiKey.trim();
   if (!trimmedApiKey.startsWith('RGAPI-')) {
-    errorDiv.html(`
-      <div class="text-red-400">
-        <strong>⚠️ Invalid API Key Format</strong><br>
-        <small class="text-gray-400">API key must start with "RGAPI-". Check that you copied the full key from the Riot Developer Portal.</small>
-      </div>
-    `).removeClass('hidden');
+    errorSpan.html(`
+      <strong>⚠️ Invalid API Key Format</strong><br>
+      <small class="text-gray-400">API key must start with "RGAPI-". Check that you copied the full key from the Riot Developer Portal.</small>
+    `);
+    errorDiv.removeClass('hidden');
     return;
   }
   
@@ -4400,13 +4649,13 @@ function handleLoginSubmit(e) {
         );
       }
       
-      errorDiv.html(`
-        <div class="text-red-400">
-          ${is403Error ? '<div class="mb-3 p-3 bg-yellow-900/20 border border-yellow-500/50 rounded-lg"><strong class="text-yellow-400">⚠️ API Key Likely Expired</strong><br><small class="text-gray-300">Riot API keys expire after 24 hours. Get a new key from the <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a> and update it in the form above.</small></div>' : ''}
-          <strong>Error:</strong> ${errorMessage}<br>
-          <small class="text-gray-500 mt-2 block">Check browser console (F12) for detailed diagnostics</small>
-        </div>
-      `).removeClass('hidden');
+      const errorSpan = errorDiv.find('span');
+      errorSpan.html(`
+        ${is403Error ? '<div class="mb-3 p-3 bg-yellow-900/20 border border-yellow-500/50 rounded-lg"><strong class="text-yellow-400">⚠️ API Key Likely Expired</strong><br><small class="text-gray-300">Riot API keys expire after 24 hours. Get a new key from the <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a> and update it in the form above.</small></div>' : ''}
+        <strong>Error:</strong> ${errorMessage}<br>
+        <small class="text-gray-500 mt-2 block">Check browser console (F12) for detailed diagnostics</small>
+      `);
+      errorDiv.removeClass('hidden');
       submitBtn.prop('disabled', false);
       btnText.text('Load Player Data');
     });
@@ -4420,6 +4669,30 @@ $(document).ready(function() {
   
   // Setup login form handler
   $('#loginForm').on('submit', handleLoginSubmit);
+  
+  // Enhanced dropdown arrow animation
+  const regionSelect = $('#region');
+  const regionArrow = $('#regionArrow');
+  
+  if (regionSelect.length && regionArrow.length) {
+    // Rotate arrow on focus/blur
+    regionSelect.on('focus', function() {
+      regionArrow.css('transform', 'rotate(180deg)');
+    });
+    
+    regionSelect.on('blur', function() {
+      regionArrow.css('transform', 'rotate(0deg)');
+    });
+    
+    // Also handle change event for better UX
+    regionSelect.on('change', function() {
+      // Add a subtle pulse effect when selection changes
+      regionSelect.addClass('ring-2 ring-sky-500/50');
+      setTimeout(() => {
+        regionSelect.removeClass('ring-2 ring-sky-500/50');
+      }, 300);
+    });
+  }
   
   // Pre-populate form if credentials exist
   if (hasCredentials) {
