@@ -5090,6 +5090,11 @@ $(document).ready(function() {
   // Initialize banner cycling (only for dashboard)
   initBannerCycling();
   
+  // Initialize login background cycling if login page is visible
+  if (!$('#loginPage').hasClass('hidden')) {
+    initLoginBackgroundCycling();
+  }
+  
   // Setup tab click handlers
   setupTabHandlers();
   
