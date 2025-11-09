@@ -1399,14 +1399,18 @@ function mapAPIDataToLeagueData(playerStats, questsData) {
 
   // Map quests (if API provided them, otherwise generate locally)
   if (questsData && questsData.quests) {
-    leagueData.quests = questsData.quests.map(quest => ({
-      title: quest.title || quest.name,
-      description: quest.description || quest.desc,
-      progress: quest.progress || '0/1',
-      difficulty: quest.difficulty || 'Medium',
-      xpReward: quest.xpReward || quest.xp || getXPForDifficulty(quest.difficulty || 'Medium'),
-      completed: quest.completed || false
-    }));
+    leagueData.quests = questsData.quests.map((quest, index) => {
+      // Use the intelligent difficulty assignment function
+      const assignedDifficulty = assignDifficultyToQuest(quest, index, questsData.quests.length);
+      return {
+        title: quest.title || quest.name,
+        description: quest.description || quest.desc,
+        progress: quest.progress || '0/1',
+        difficulty: assignedDifficulty,
+        xpReward: quest.xpReward || quest.xp || getXPForDifficulty(assignedDifficulty),
+        completed: quest.completed || false
+      };
+    });
   } else {
     // Generate quests based on current rank if API didn't provide them
     generateQuests();
@@ -1658,6 +1662,47 @@ function getXPForDifficulty(difficulty) {
     'Extreme': 200
   };
   return xpMap[difficulty] || 10;
+}
+
+// Function to intelligently assign difficulty to a quest based on its content
+// This helps ensure quests have varied difficulty levels even when the API doesn't provide them
+function assignDifficultyToQuest(quest, questIndex, totalQuests) {
+  // If difficulty is already set, use it
+  if (quest.difficulty) {
+    return quest.difficulty;
+  }
+  
+  // Analyze quest title and description for difficulty indicators
+  const title = (quest.title || quest.name || '').toLowerCase();
+  const description = (quest.description || quest.desc || '').toLowerCase();
+  const combined = title + ' ' + description;
+  
+  // Keywords that indicate difficulty levels
+  const easyKeywords = ['daily', 'play', 'complete', '3', '5', 'simple', 'basic', 'foundation'];
+  const mediumKeywords = ['win', '10', '15', 'streak', 'maintain', 'consistency'];
+  const hardKeywords = ['20', '25', '30', 'promote', 'division', 'climb', '55%', 'win rate'];
+  const veryHardKeywords = ['200', 'lp', 'mastery', 'elite', 'top-tier', 'maintain rank'];
+  const extremeKeywords = ['300', '400', '500', 'challenger', 'grandmaster', 'perfect', 'flawless'];
+  
+  // Check for difficulty indicators
+  if (extremeKeywords.some(keyword => combined.includes(keyword))) {
+    return 'Extreme';
+  }
+  if (veryHardKeywords.some(keyword => combined.includes(keyword))) {
+    return 'Very Hard';
+  }
+  if (hardKeywords.some(keyword => combined.includes(keyword))) {
+    return 'Hard';
+  }
+  if (easyKeywords.some(keyword => combined.includes(keyword))) {
+    return 'Easy';
+  }
+  
+  // If no keywords match, distribute difficulties evenly across quests
+  // This ensures variety even when we can't determine from content
+  const difficultyDistribution = ['Easy', 'Medium', 'Hard', 'Very Hard', 'Extreme'];
+  const index = questIndex % difficultyDistribution.length;
+  return difficultyDistribution[index];
 }
 
 // Function to generate quests based on current rank
