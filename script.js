@@ -1,3 +1,25 @@
+// Utility function: Format date to readable format (e.g., "Jan 15, 2024")
+function formatDate(dateString) {
+  if (!dateString) return 'Unknown Date';
+  
+  try {
+    // Handle ISO format (YYYY-MM-DD) or timestamp
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return dateString; // Return original if invalid
+    }
+    
+    // Format as "Month Day, Year" (e.g., "Jan 15, 2024")
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    return date.toLocaleDateString('en-US', options);
+  } catch (error) {
+    // If parsing fails, return original string
+    return dateString;
+  }
+}
+
 // Utility function: fetch weather for Troy, NY (latitude, longitude)
 function fetchTroyWeather() {
   // Coordinates for Troy, NY (approx)
@@ -33,22 +55,1356 @@ let leagueData = {
   }
 };
 
-// Placeholder function for future League API integration
-// This will fetch data from League API endpoints when implemented
-function fetchLeagueData() {
-  // TODO: Replace with actual League API calls when backend is ready
-  // Example structure for future implementation:
-  // return Promise.all([
-  //   fetch('/api/player/seasons'),
-  //   fetch('/api/player/most-played')
-  // ]).then(responses => Promise.all(responses.map(r => r.json())))
-  //   .then(([seasons, champions]) => {
-  //     leagueData.pastSeasonRanks = seasons;
-  //     leagueData.mostPlayedChampions = champions;
-  //   });
+// User credentials storage
+let userCredentials = {
+  apiKey: 'RGAPI-47148504-2d76-4d11-93aa-2e7db404f98f', // Default API key (Lambda requires it in request body)
+  gameName: null,
+  tagLine: null,
+  region: null
+};
+
+// Data loading state - track if data has been loaded and when
+let dataLoadState = {
+  isLoaded: false,
+  isLoading: false,
+  lastLoadTime: null,
+  loadPromise: null
+};
+
+// Map region codes to routing regions (for APIs that need routing regions)
+function getRoutingRegion(regionCode) {
+  const routingMap = {
+    // Americas
+    'na1': 'americas',
+    'br1': 'americas',
+    'la1': 'americas',
+    'la2': 'americas',
+    // Europe & Middle East
+    'euw1': 'europe',
+    'eun1': 'europe',
+    'tr1': 'europe',
+    'ru': 'europe',
+    'me1': 'europe',
+    // Asia Pacific
+    'kr': 'asia',
+    'jp1': 'asia',
+    'tw2': 'asia',
+    'vn2': 'asia',
+    'ph2': 'asia',
+    'sg2': 'asia',
+    'th2': 'asia',
+    'id1': 'asia',
+    // Oceania
+    'oc1': 'asia' // Oceania typically uses Asia routing
+  };
   
-  // For now, initialize with mock data
-  return initializeMockData();
+  // If it's already a routing region, return as-is
+  if (['americas', 'europe', 'asia'].includes(regionCode.toLowerCase())) {
+    return regionCode.toLowerCase();
+  }
+  
+  return routingMap[regionCode] || 'americas'; // Default fallback
+}
+
+// ✅ Fetch player stats from AWS API Gateway (CrystalJSScore Lambda)
+// Matches your exact API structure
+async function getPlayerStats(apiKey, name, tag, region) {
+  const ENDPOINT = "https://q9nbniuo24.execute-api.us-east-2.amazonaws.com/default/CrystalJSScore1-1";
+  
+  // Add timeout (30 seconds)
+  const timeout = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    console.log("🔄 Fetching player stats from Lambda...");
+    console.log("🔍 ========== DIAGNOSTIC VALIDATION ==========");
+    
+    // Process and validate each parameter
+    const processedApiKey = (apiKey && apiKey.trim()) ? apiKey.trim() : '';
+    const processedName = (name && name.trim()) ? name.trim() : '';
+    const processedTag = (tag && tag.trim()) ? tag.trim() : '';
+    const processedRegion = (region && region.trim()) ? region.trim() : '';
+    
+    // 1. API KEY VALIDATION
+    console.log("🔑 API KEY DIAGNOSTICS:");
+    console.log("  - Raw value:", apiKey ? `"${apiKey.substring(0, 10)}..." (${apiKey.length} chars)` : '(empty)');
+    console.log("  - Processed value:", processedApiKey ? `"${processedApiKey.substring(0, 10)}..." (${processedApiKey.length} chars)` : '(empty)');
+    console.log("  - Format check:", processedApiKey.startsWith('RGAPI-') ? '✅ Starts with RGAPI-' : '❌ Does NOT start with RGAPI-');
+    console.log("  - Length check:", processedApiKey.length >= 20 ? `✅ Length OK (${processedApiKey.length})` : `❌ Too short (${processedApiKey.length}, expected ≥20)`);
+    
+    // 2. GAME NAME VALIDATION
+    console.log("👤 GAME NAME DIAGNOSTICS:");
+    console.log("  - Raw value:", name ? `"${name}" (${name.length} chars)` : '(empty)');
+    console.log("  - Processed value:", processedName ? `"${processedName}" (${processedName.length} chars)` : '(empty)');
+    console.log("  - Has spaces:", processedName.includes(' ') ? `✅ Contains spaces: "${processedName}"` : 'No spaces');
+    console.log("  - Length check:", processedName.length >= 3 && processedName.length <= 16 ? `✅ Length OK (${processedName.length})` : `⚠️ Length: ${processedName.length} (expected 3-16)`);
+    console.log("  - Special chars:", /[^a-zA-Z0-9\s]/.test(processedName) ? `⚠️ Contains special chars` : '✅ No special chars');
+    
+    // 3. TAG LINE VALIDATION
+    console.log("🏷️ TAG LINE DIAGNOSTICS:");
+    console.log("  - Raw value:", tag ? `"${tag}" (${tag.length} chars)` : '(empty)');
+    console.log("  - Processed value:", processedTag ? `"${processedTag}" (${processedTag.length} chars)` : '(empty)');
+    console.log("  - Length check:", processedTag.length >= 2 && processedTag.length <= 5 ? `✅ Length OK (${processedTag.length})` : `⚠️ Length: ${processedTag.length} (expected 2-5)`);
+    console.log("  - Format check:", /^[A-Z0-9]+$/.test(processedTag.toUpperCase()) ? '✅ Valid format (alphanumeric)' : '⚠️ May contain invalid characters');
+    
+    // 4. REGION VALIDATION
+    console.log("🌍 REGION DIAGNOSTICS:");
+    console.log("  - Raw value:", region ? `"${region}"` : '(empty)');
+    console.log("  - Processed value:", processedRegion ? `"${processedRegion}"` : '(empty)');
+    // Define valid routing regions (accessible throughout function)
+    const validRegions = ['americas', 'europe', 'asia'];
+    const processedRegionLower = processedRegion.toLowerCase();
+    console.log("  - Valid region check:", validRegions.includes(processedRegionLower) ? `✅ Valid routing region: "${processedRegion}"` : `❌ INVALID routing region: "${processedRegion}" (expected one of: ${validRegions.join(', ')})`);
+    if (!validRegions.includes(processedRegionLower) && processedRegion) {
+      console.error("  ❌ REGION MISMATCH! The region you entered doesn't match any valid routing region.");
+      console.error("     Please select: Americas, Europe, or Asia from the dropdown.");
+    }
+    
+    console.log("🔍 ==========================================");
+    
+    // Build request payload - Lambda requires all fields including api_key
+    // Use routing region directly (americas, europe, asia)
+    const routingRegion = getRoutingRegion(processedRegion.toLowerCase());
+    const requestPayload = {
+      api_key: processedApiKey,
+      game_name: processedName,
+      tag_line: processedTag,
+      region: routingRegion, // Use routing region (americas, europe, asia)
+    };
+    
+    // Validate all required fields are present (non-empty)
+    const validationErrors = [];
+    if (!requestPayload.api_key) {
+      validationErrors.push('API key is empty');
+    } else if (!requestPayload.api_key.startsWith('RGAPI-')) {
+      validationErrors.push('API key format invalid (should start with RGAPI-)');
+    }
+    if (!requestPayload.game_name) {
+      validationErrors.push('game_name is empty');
+    }
+    if (!requestPayload.tag_line) {
+      validationErrors.push('tag_line is empty');
+    }
+    if (!requestPayload.region) {
+      validationErrors.push('region is empty');
+    } else if (!validRegions.includes(requestPayload.region)) {
+      validationErrors.push(`region "${requestPayload.region}" is not a valid Riot API region code`);
+    }
+    
+    if (validationErrors.length > 0) {
+      console.error("❌ VALIDATION ERRORS:", validationErrors);
+      throw new Error(`Validation failed:\n${validationErrors.map(e => `  • ${e}`).join('\n')}`);
+    }
+    
+    // Log what we're sending (mask API key for security)
+    console.log("📤 Request payload:", { 
+      api_key: requestPayload.api_key ? '***' : '(empty string)', 
+      game_name: requestPayload.game_name, 
+      tag_line: requestPayload.tag_line, 
+      region: requestPayload.region 
+    });
+    
+    // Log the actual JSON to verify structure
+    const jsonPayload = JSON.stringify(requestPayload);
+    console.log("📤 JSON payload being sent:", jsonPayload);
+    console.log("📤 Payload length:", jsonPayload.length, "bytes");
+    
+    const response = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: jsonPayload, // Use the pre-stringified JSON
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("❌ API Error Response:", errText);
+      console.error("❌ Request payload that failed:", {
+        api_key: requestPayload.api_key ? '***' : '(empty)',
+        game_name: requestPayload.game_name,
+        tag_line: requestPayload.tag_line,
+        region: requestPayload.region
+      });
+      console.error("❌ Full JSON payload that was sent:", jsonPayload);
+      console.error("❌ Response status:", response.status);
+      
+      // Parse error for better user messaging
+      let errorMessage = `HTTP ${response.status}: ${errText}`;
+      let diagnosticInfo = '';
+      
+      try {
+        const errorObj = JSON.parse(errText);
+        if (errorObj.error) {
+          errorMessage = errorObj.error;
+          
+          // Check if it's a 403 error (API key issue)
+          if (response.status === 403 || errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
+            console.error("🔍 ========== 403 ERROR DIAGNOSTICS ==========");
+            console.error("  A 403 Forbidden error from Riot API typically means:");
+            console.error("  1. API KEY ISSUE (most common):");
+            console.error("     - API key is invalid or expired");
+            console.error("     - API key doesn't have required permissions");
+            console.error("     - API key format is incorrect");
+            console.error("  📋 Current API key check:");
+            console.error("     - Format:", requestPayload.api_key.startsWith('RGAPI-') ? '✅ Correct' : '❌ Wrong format');
+            console.error("     - Length:", requestPayload.api_key.length >= 20 ? `✅ OK (${requestPayload.api_key.length})` : `❌ Too short (${requestPayload.api_key.length})`);
+            console.error("  2. ACCOUNT ISSUE:");
+            console.error("     - Game name + tag line don't match any account");
+            console.error("     - Account doesn't exist in the specified region");
+            console.error("     - Account is private or banned");
+            console.error("  📋 Current account check:");
+            console.error("     - Game Name:", `"${requestPayload.game_name}"`);
+            console.error("     - Tag Line:", `"${requestPayload.tag_line}"`);
+            console.error("     - Combined:", `"${requestPayload.game_name}#${requestPayload.tag_line}"`);
+            console.error("  3. REGION MISMATCH:");
+            console.error("     - Account exists but in a different routing region");
+            console.error("     - Routing region is incorrect (should be: americas, europe, or asia)");
+            console.error("  📋 Current region check:");
+            console.error("     - Region:", `"${requestPayload.region}"`);
+            console.error("     - Valid:", validRegions.includes(requestPayload.region.toLowerCase()) ? '✅ Yes' : '❌ No');
+            console.error("🔍 ==========================================");
+            
+            diagnosticInfo = '\n\n🔍 DIAGNOSTIC SUMMARY:\n';
+            diagnosticInfo += `API Key: ${requestPayload.api_key.startsWith('RGAPI-') && requestPayload.api_key.length >= 20 ? '✅ Format looks OK' : '❌ Format or length issue'}\n`;
+            diagnosticInfo += `Game Name: "${requestPayload.game_name}" (${requestPayload.game_name.length} chars)\n`;
+            diagnosticInfo += `Tag Line: "${requestPayload.tag_line}" (${requestPayload.tag_line.length} chars)\n`;
+            diagnosticInfo += `Region: "${requestPayload.region}" ${validRegions.includes(requestPayload.region.toLowerCase()) ? '✅' : '❌ INVALID (must be: americas, europe, or asia)'}\n`;
+            diagnosticInfo += `\n⚠️ MOST COMMON CAUSE: API KEY EXPIRED\n`;
+            diagnosticInfo += `Riot API keys expire after 24 hours. If this worked before, your key likely expired.\n\n`;
+            diagnosticInfo += `💡 TROUBLESHOOTING (in order of likelihood):\n`;
+            diagnosticInfo += `1. 🔑 API KEY EXPIRED (most common) - Get a new key from https://developer.riotgames.com/\n`;
+            diagnosticInfo += `   • Log in to Riot Developer Portal\n`;
+            diagnosticInfo += `   • Go to "API Keys" section\n`;
+            diagnosticInfo += `   • Generate a new key (starts with RGAPI-)\n`;
+            diagnosticInfo += `   • Copy and paste it into the API Key field above\n`;
+            diagnosticInfo += `2. Check if "${requestPayload.game_name}#${requestPayload.tag_line}" exists in routing region "${requestPayload.region}"\n`;
+            diagnosticInfo += `3. Try a different routing region (americas, europe, or asia) if the account might be in another region\n`;
+            diagnosticInfo += `4. Verify the account is not private or banned`;
+            
+            errorMessage = 'Riot API returned 403 Forbidden.' + diagnosticInfo;
+          } else if (response.status === 400) {
+            console.error("🔍 400 Bad Request - Likely a parameter format issue");
+            diagnosticInfo = '\n\n🔍 This usually means:\n';
+            diagnosticInfo += '• One or more parameters are in the wrong format\n';
+            diagnosticInfo += '• Missing required fields\n';
+            diagnosticInfo += '• Invalid region code\n';
+            errorMessage += diagnosticInfo;
+          } else if (response.status === 404 || response.status === 500) {
+            // Check if it's a 404 account not found error
+            if (errorMessage.includes('404') || errorMessage.includes('Account lookup failed')) {
+              console.error("🔍 ========== 404 ACCOUNT NOT FOUND DIAGNOSTICS ==========");
+              console.error("  The account could not be found. This usually means:");
+              console.error("  1. ACCOUNT NAME/TAG MISMATCH:");
+              console.error("     - The game name and tag line don't match any account");
+              console.error("     - Account name is case-sensitive (check capitalization)");
+              console.error("     - Account might have been renamed or deleted");
+              console.error("  📋 Current account check:");
+              console.error("     - Game Name:", `"${requestPayload.game_name}"`);
+              console.error("     - Tag Line:", `"${requestPayload.tag_line}"`);
+              console.error("     - Combined:", `"${requestPayload.game_name}#${requestPayload.tag_line}"`);
+              console.error("  2. REGION MISMATCH:");
+              console.error("     - Account exists but in a different region");
+              console.error("     - Try: americas, europe, or asia");
+              console.error("  📋 Current region check:");
+              console.error("     - Region:", `"${requestPayload.region}"`);
+              console.error("🔍 ==========================================");
+              
+              diagnosticInfo = '\n\n🔍 ACCOUNT NOT FOUND - Troubleshooting:\n';
+              diagnosticInfo += `1. Verify the account "${requestPayload.game_name}#${requestPayload.tag_line}" exists\n`;
+              diagnosticInfo += `   • Check the exact spelling and capitalization\n`;
+              diagnosticInfo += `   • Riot account names are case-sensitive\n`;
+              diagnosticInfo += `   • Make sure there are no extra spaces before/after the name\n`;
+              diagnosticInfo += `2. Try a different region:\n`;
+              diagnosticInfo += `   • Current region: "${requestPayload.region}"\n`;
+              diagnosticInfo += `   • Try: americas, europe, or asia\n`;
+              diagnosticInfo += `3. Verify the account is active and not banned\n`;
+              diagnosticInfo += `4. Check if the account name has special characters that need to be entered exactly\n`;
+              
+              errorMessage = `Account not found: "${requestPayload.game_name}#${requestPayload.tag_line}"` + diagnosticInfo;
+            }
+          }
+        }
+      } catch (e) {
+        // If error text isn't JSON, use it as-is
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log("✅ API Response received:", data);
+    console.log("📊 Full API Response structure:", JSON.stringify(data, null, 2));
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Request timed out. The Lambda function may be experiencing cold start delays. Please try again.');
+    }
+    console.error("❌ Error fetching player stats:", err);
+    throw err;
+  }
+}
+
+// ✅ Fetch quests from AWS Lambda
+// Matches your exact API structure - no api_key needed
+async function getQuests(gameName, tagLine, region) {
+  const ENDPOINT = "https://03femdw9g5.execute-api.us-east-1.amazonaws.com/default/quests";
+  
+  // Convert region code to routing region if needed
+  const routingRegion = getRoutingRegion(region);
+  
+  // Add timeout (30 seconds)
+  const timeout = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    console.log("🔄 Fetching quests from Lambda...");
+    console.log("📤 Request payload:", { game_name: gameName, tag_line: tagLine, region: routingRegion });
+    
+    const response = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        game_name: gameName,
+        tag_line: tagLine,
+        region: routingRegion, // Use routing region for quests API
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("❌ Quests API Error Response:", errText);
+      throw new Error(`HTTP ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    console.log("✅ Quests API Response received:", data);
+    console.log("📊 Full Quests Response:", JSON.stringify(data, null, 2));
+    return data;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Quest request timed out. Please try again.');
+    }
+    console.error("❌ Error fetching quests:", err);
+    throw err;
+  }
+}
+
+// ✅ Fetch AI-generated feedback from AWS Lambda
+// Generates roast and compliment feedback for matches using AI
+async function getAIFeedback(player, matchSummaries) {
+  // TODO: Replace this URL with your actual Lambda feedback endpoint after deployment
+  // The endpoint should be your API Gateway URL for the feedback Lambda function
+  const ENDPOINT = "https://xewn6ahmh9.execute-api.us-east-1.amazonaws.com/default/quests";
+  
+  // Add timeout (30 seconds - AI calls can take time)
+  const timeout = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    console.log("🤖 Fetching AI feedback from Lambda...");
+    console.log("📊 Matches to analyze:", matchSummaries.length);
+    
+    // Log champion info for each match being sent
+    matchSummaries.forEach((match, index) => {
+      console.log(`  Match ${index + 1}: Champion: ${match.champion}, Role: ${match.role}, KDA: ${match.kills}/${match.deaths}/${match.assists}`);
+    });
+    
+    // Get region from user credentials
+    const region = userCredentials.region || 'americas';
+    const routingRegion = getRoutingRegion(region);
+    
+    // Prepare the request payload matching the Lambda function's expected input
+    // The Lambda expects game_name, tag_line, and region at the top level
+    const gameName = player.gameName || player.game_name || userCredentials.gameName || '';
+    const tagLine = player.tagLine || player.tag_line || userCredentials.tagLine || '';
+    
+    // CRITICAL: Ensure we're only analyzing ONE match at a time
+    // If multiple matches are sent, the Lambda might get confused
+    const singleMatch = matchSummaries.length === 1 ? matchSummaries[0] : null;
+    
+    if (!singleMatch) {
+      throw new Error(`Expected exactly 1 match, but received ${matchSummaries.length} matches`);
+    }
+    
+    // Extract champion and role from the SINGLE match being analyzed
+    const targetChampion = singleMatch.champion;
+    const targetRole = singleMatch.role;
+    const targetKDA = `${singleMatch.kills}/${singleMatch.deaths}/${singleMatch.assists}`;
+    
+    console.log(`🎯 TARGET MATCH FOR FEEDBACK:`);
+    console.log(`   Champion: ${targetChampion}`);
+    console.log(`   Role: ${targetRole}`);
+    console.log(`   KDA: ${targetKDA}`);
+    console.log(`   CS: ${singleMatch.cs}`);
+    console.log(`   Damage: ${singleMatch.damage}`);
+    console.log(`   Gold: ${singleMatch.gold}`);
+    
+    // Build request payload with explicit single match focus
+    // CRITICAL: Add explicit instruction to ONLY analyze the match we send
+    const requestPayload = {
+      game_name: gameName,
+      tag_line: tagLine,
+      region: routingRegion,
+      // Explicitly mark this as a single match analysis
+      singleMatch: true,
+      targetChampion: targetChampion,
+      targetRole: targetRole,
+      // CRITICAL INSTRUCTION: Only analyze the matchSummaries we send, ignore any other data
+      instruction: `IMPORTANT: Analyze ONLY the single match in matchSummaries array. The champion is ${targetChampion} playing ${targetRole}. Ignore any other match data. Generate feedback specifically for this ${targetChampion} ${targetRole} game only.`,
+      player: {
+        puuid: player.puuid || '',
+        gameName: gameName,
+        tagLine: tagLine
+      },
+      // Send ONLY the single match being analyzed - Lambda MUST use this, not quests data
+      matchSummaries: [singleMatch],
+      // Add a flag to tell Lambda to ignore quests data
+      ignoreQuestsData: true,
+      useOnlyProvidedMatches: true,
+      feedback: {
+        roast: "",
+        compliment: ""
+      }
+    };
+    
+    console.log("📤 Sending request to Lambda:", {
+      game_name: gameName,
+      tag_line: tagLine,
+      region: routingRegion,
+      matchCount: 1, // Always 1 for single match analysis
+      targetChampion: targetChampion,
+      targetRole: targetRole,
+      singleMatch: true
+    });
+    
+    // Log the exact payload being sent
+    console.log("📋 Full payload being sent:", JSON.stringify(requestPayload, null, 2));
+    
+    const response = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestPayload),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Lambda Error Response:", errorText);
+      
+      let errorMessage = `HTTP ${response.status}: ${errorText}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        // Not JSON, use text as-is
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    // Try to parse JSON response
+    const contentType = response.headers.get('content-type');
+    let data;
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      // Try to parse as JSON even if content-type is wrong
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`Invalid response format: ${text.substring(0, 100)}`);
+      }
+    }
+    
+    console.log("✅ AI Feedback received:", data);
+    console.log("📋 Response structure:", {
+      hasFeedback: !!data.feedback,
+      hasRoast: !!data.roast,
+      hasCompliment: !!data.compliment,
+      hasContent: !!data.content,
+      contentType: data.content ? typeof data.content : 'none',
+      matchSummariesInResponse: data.matchSummaries ? data.matchSummaries.length : 0
+    });
+    
+    // WARNING: If Lambda returns multiple matches, it's ignoring our single match request
+    if (data.matchSummaries && data.matchSummaries.length > 1) {
+      console.error("⚠️ WARNING: Lambda returned", data.matchSummaries.length, "matches but we only sent 1!");
+      console.error("   This means Lambda is using quests data instead of our single match.");
+      console.error("   Champions in response:", data.matchSummaries.map(m => m.champion).join(", "));
+      console.error("   We requested feedback for:", targetChampion);
+    }
+    
+    // Extract feedback from response
+    // Handle different possible response structures
+    
+    // Case 1: Direct feedback object
+    if (data.feedback && typeof data.feedback === 'object') {
+      // Check if both roast and compliment are already parsed
+      if (data.feedback.roast && data.feedback.compliment && 
+          typeof data.feedback.roast === 'string' && 
+          typeof data.feedback.compliment === 'string' &&
+          !data.feedback.compliment.includes('"content"')) {
+        console.log("✅ Found feedback in data.feedback (already parsed)");
+        return data.feedback; // { roast: "...", compliment: "..." }
+      }
+      
+      // If compliment is a Claude API response string, parse it
+      if (data.feedback.compliment && typeof data.feedback.compliment === 'string' && 
+          data.feedback.compliment.includes('"content"')) {
+        console.log("✅ Found feedback object with Claude API response in compliment, parsing...");
+        try {
+          // Try to parse the compliment string - it might be truncated or malformed
+          let parsedCompliment;
+          try {
+            parsedCompliment = JSON.parse(data.feedback.compliment);
+          } catch (parseError) {
+            console.warn("⚠️ First parse attempt failed, trying to fix JSON...");
+            // Try to extract just the text content if JSON is malformed
+            const textMatch = data.feedback.compliment.match(/"text"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+            if (textMatch && textMatch[1]) {
+              // Unescape the JSON string
+              const unescapedText = textMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\\/g, '\\');
+              try {
+                const innerParsed = JSON.parse(unescapedText);
+                return {
+                  roast: data.feedback.roast || innerParsed.roast || "Parse Error",
+                  compliment: innerParsed.compliment || "Parse Error"
+                };
+              } catch (innerError) {
+                console.error("❌ Error parsing inner JSON:", innerError);
+                throw parseError; // Re-throw original error
+              }
+            }
+            throw parseError; // Re-throw if we can't fix it
+          }
+          
+          if (parsedCompliment.content && Array.isArray(parsedCompliment.content)) {
+            const textContent = parsedCompliment.content.find(c => c.type === 'text' && c.text);
+            if (textContent && textContent.text) {
+              try {
+                const innerParsed = JSON.parse(textContent.text);
+                return {
+                  roast: data.feedback.roast || innerParsed.roast || "Parse Error",
+                  compliment: innerParsed.compliment || "Parse Error"
+                };
+              } catch (innerError) {
+                console.error("❌ Error parsing inner text JSON:", innerError);
+                // If inner JSON is malformed, try to extract roast/compliment directly from text
+                const text = textContent.text;
+                const roastMatch = text.match(/"roast"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+                const complimentMatch = text.match(/"compliment"\s*:\s*"([^"]*(?:\\.[^"]*)*)"/);
+                
+                if (roastMatch || complimentMatch) {
+                  return {
+                    roast: roastMatch ? roastMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : (data.feedback.roast || "Parse Error"),
+                    compliment: complimentMatch ? complimentMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : "Parse Error"
+                  };
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error("❌ Error parsing feedback.compliment:", e);
+          console.error("   Compliment string length:", data.feedback.compliment?.length);
+          console.error("   First 500 chars:", data.feedback.compliment?.substring(0, 500));
+        }
+      }
+      
+      // If roast is "Parse Error" or similar, try to get it from elsewhere
+      if (data.feedback.roast === "Parse Error" || !data.feedback.roast) {
+        console.log("⚠️ Roast is missing or 'Parse Error', checking other sources...");
+      }
+    }
+    
+    // Case 2: Direct roast/compliment at top level
+    if (data.roast && data.compliment) {
+      console.log("✅ Found roast/compliment at top level");
+      return { roast: data.roast, compliment: data.compliment };
+    }
+    
+    // Case 3: Claude API response structure (content array with text)
+    if (data.content && Array.isArray(data.content)) {
+      console.log("✅ Found Claude API response structure");
+      try {
+        // Find the text content
+        const textContent = data.content.find(c => c.type === 'text' && c.text);
+        if (textContent && textContent.text) {
+          console.log("📝 Found text content, parsing JSON...");
+          // The text is a JSON string, parse it
+          const parsedText = JSON.parse(textContent.text);
+          
+          if (parsedText.roast && parsedText.compliment) {
+            console.log("✅ Successfully extracted roast and compliment from Claude response");
+            return {
+              roast: parsedText.roast,
+              compliment: parsedText.compliment
+            };
+          } else if (parsedText.feedback) {
+            // Sometimes it's nested in feedback
+            return parsedText.feedback;
+          }
+        }
+      } catch (e) {
+        console.error("❌ Error parsing Claude API response:", e);
+        console.error("   Text content:", textContent?.text?.substring(0, 200));
+      }
+    }
+    
+    // Case 4: Feedback is a string that needs parsing
+    if (typeof data.feedback === 'string') {
+      console.log("✅ Found feedback as string, parsing...");
+      try {
+        const parsed = JSON.parse(data.feedback);
+        if (parsed.roast && parsed.compliment) {
+          return parsed;
+        } else if (parsed.feedback) {
+          return parsed.feedback;
+        }
+      } catch (e) {
+        console.error("❌ Error parsing feedback string:", e);
+      }
+    }
+    
+    // Case 5: Compliment is a string (like in the user's example)
+    if (data.compliment && typeof data.compliment === 'string' && data.compliment.includes('"content"')) {
+      console.log("✅ Found compliment as Claude API response string, parsing...");
+      try {
+        const parsedCompliment = JSON.parse(data.compliment);
+        if (parsedCompliment.content && Array.isArray(parsedCompliment.content)) {
+          const textContent = parsedCompliment.content.find(c => c.type === 'text' && c.text);
+          if (textContent && textContent.text) {
+            const innerParsed = JSON.parse(textContent.text);
+            return {
+              roast: innerParsed.roast || data.roast || "Parse Error",
+              compliment: innerParsed.compliment || "Parse Error"
+            };
+          }
+        }
+      } catch (e) {
+        console.error("❌ Error parsing compliment string:", e);
+      }
+    }
+    
+    // Fallback: Return what we can find or error messages
+    console.warn("⚠️ Could not parse feedback from response, using fallback");
+    return {
+      roast: data.roast || data.feedback?.roast || "Failed to generate roast - response format not recognized",
+      compliment: data.compliment || data.feedback?.compliment || "Failed to generate compliment - response format not recognized"
+    };
+    
+  } catch (err) {
+    clearTimeout(timeoutId);
+    
+    if (err.name === 'AbortError') {
+      throw new Error('AI feedback request timed out. The AI is taking longer than expected.');
+    }
+    
+    console.error("❌ Error fetching AI feedback:", err);
+    throw err;
+  }
+}
+
+// Fetch League data from AWS Lambda APIs
+async function fetchLeagueData(showLoading = true, forceRefresh = false) {
+  // Check if we have user credentials
+  if (!userCredentials.gameName || !userCredentials.tagLine || !userCredentials.region) {
+    console.warn("No user credentials found");
+    throw new Error("Please enter your account information to load data");
+  }
+  
+  // If data is already loaded and not forcing refresh, return immediately
+  if (!forceRefresh && dataLoadState.isLoaded && leagueData.matches.length > 0) {
+    console.log("✅ Using cached data - instant load");
+    return Promise.resolve();
+  }
+  
+  // If already loading, return the existing promise
+  if (dataLoadState.isLoading && dataLoadState.loadPromise) {
+    console.log("⏳ Data already loading, waiting for existing request...");
+    return dataLoadState.loadPromise;
+  }
+  
+  // Mark as loading and create promise
+  dataLoadState.isLoading = true;
+  const loadPromise = (async () => {
+    try {
+      if (showLoading) {
+        $('#dynamicContent').html(`
+          <div class="flex flex-col items-center justify-center py-12">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500 mb-4"></div>
+            <p class="text-gray-400">Loading player data from API...</p>
+            <p class="text-gray-500 text-sm mt-2">This may take 10-30 seconds on first request (cold start)</p>
+          </div>
+        `);
+      }
+
+        console.log("🚀 Starting data fetch...");
+        const startTime = Date.now();
+        
+        // Fetch player stats (match data, rank, champions, etc.)
+        // Lambda requires api_key field in request body
+        const defaultApiKey = 'RGAPI-47148504-2d76-4d11-93aa-2e7db404f98f';
+        const apiKeyToUse = userCredentials.apiKey || defaultApiKey;
+        
+        console.log("📤 Calling getPlayerStats with:", {
+          apiKey: '***',
+          gameName: userCredentials.gameName,
+          tagLine: userCredentials.tagLine,
+          region: userCredentials.region
+        });
+        
+        // Ensure we have all required fields
+        if (!userCredentials.gameName || !userCredentials.tagLine || !userCredentials.region) {
+          throw new Error("Missing required fields: game_name, tag_line, or region");
+        }
+        
+        const playerStats = await getPlayerStats(
+          apiKeyToUse,
+          userCredentials.gameName,
+          userCredentials.tagLine,
+          userCredentials.region
+        );
+
+        const statsTime = Date.now() - startTime;
+        console.log(`⏱️ Player stats fetched in ${statsTime}ms`);
+
+        // Fetch quests
+        let questsData = null;
+        try {
+          questsData = await getQuests(
+            userCredentials.gameName,
+            userCredentials.tagLine,
+            userCredentials.region
+          );
+          const questsTime = Date.now() - startTime - statsTime;
+          console.log(`⏱️ Quests fetched in ${questsTime}ms`);
+        } catch (questErr) {
+          console.warn("Failed to fetch quests, will generate locally:", questErr);
+        }
+
+        // Map API response to leagueData structure
+        console.log("🔄 Starting data mapping...");
+        mapAPIDataToLeagueData(playerStats, questsData);
+        
+        const totalTime = Date.now() - startTime;
+        console.log(`✅ All data loaded in ${totalTime}ms`);
+        console.log("📋 Final leagueData structure after mapping:", {
+          hasRank: !!leagueData.currentRank,
+          rank: leagueData.currentRank,
+          matchesCount: leagueData.matches.length,
+          championsCount: leagueData.mostPlayedChampions.length,
+          questsCount: leagueData.quests.length,
+          pastSeasonsCount: leagueData.pastSeasonRanks.length
+        });
+        console.log("📋 Full leagueData object:", JSON.stringify(leagueData, null, 2));
+        
+        // Ensure data is available even if API structure is different
+        if (!leagueData.currentRank) {
+          console.warn("⚠️ No rank data found, setting default");
+          leagueData.currentRank = { tier: 'Unranked', division: 'IV', lp: 0 };
+        }
+        
+        if (leagueData.matches.length === 0) {
+          console.warn("⚠️ No matches found in API response");
+        }
+        
+        // Verify data was actually set
+        if (leagueData.matches.length === 0 && leagueData.mostPlayedChampions.length === 0 && !leagueData.currentRank) {
+          console.error("❌ CRITICAL: No data was mapped from API! Check the mapping function.");
+        }
+        
+        // Mark data as loaded
+        dataLoadState.isLoaded = true;
+        dataLoadState.isLoading = false;
+        dataLoadState.lastLoadTime = Date.now();
+        dataLoadState.loadPromise = null;
+        
+        return Promise.resolve();
+      } catch (error) {
+        console.error("❌ Error fetching League data:", error);
+        console.error("❌ Error details:", error.stack);
+        
+        // Mark as not loading anymore
+        dataLoadState.isLoading = false;
+        dataLoadState.loadPromise = null;
+        
+        if (showLoading) {
+          // Format error message - check if it's a 403/API key issue
+          let errorMsg = error.message;
+          let errorDetails = '';
+          
+          if (error.message.includes('403') || error.message.includes('Forbidden') || error.message.includes('Account lookup failed')) {
+            errorDetails = `
+              <div class="bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-4 mt-4">
+                <h4 class="text-yellow-400 font-semibold mb-2">⚠️ 403 Forbidden Error</h4>
+                <p class="text-yellow-300 text-sm mb-2">The Riot API returned a 403 error. This usually means:</p>
+                <ul class="text-yellow-300 text-sm list-disc list-inside space-y-1">
+                  <li>The API key may be invalid or expired</li>
+                  <li>The API key may not have the required permissions</li>
+                  <li>The player account may not exist or may be private</li>
+                  <li>The region code might be incorrect</li>
+                </ul>
+                <p class="text-yellow-300 text-sm mt-3"><strong>Note:</strong> Riot API keys expire after 24 hours. You may need to generate a new key.</p>
+              </div>
+            `;
+            errorMsg = 'Riot API returned 403 Forbidden. Please check the API key and account information.';
+          }
+          
+          $('#dynamicContent').html(`
+            <div class="bg-red-900/20 border border-red-500 rounded-lg p-6">
+              <h3 class="text-red-400 font-semibold mb-2">Error Loading Data</h3>
+              <p class="text-gray-300 mb-4">${errorMsg}</p>
+              ${errorDetails}
+              <p class="text-gray-400 text-sm mt-4 mb-4">Check browser console (F12) for technical details.</p>
+              <div class="mt-4 space-x-2">
+                <button onclick="fetchLeagueData(true, true)" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded">
+                  Retry
+                </button>
+                <button onclick="handleLogout()" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded">
+                  Try Different Account
+                </button>
+              </div>
+            </div>
+          `);
+        }
+        
+        // Don't fall back to mock data automatically - let user decide
+        throw error; // Re-throw so caller can handle it
+      }
+    })();
+  
+  // Store promise for reuse
+  dataLoadState.loadPromise = loadPromise;
+  return loadPromise;
+}
+
+// Calculate OP Score based on role-specific formulas
+function calculateOpScore(player, role, matchData) {
+  // Normalize role to match formula names
+  const normalizedRole = (role || '').toLowerCase();
+  const isJungle = normalizedRole.includes('jungle') || normalizedRole === 'jg';
+  const isMid = normalizedRole.includes('mid') || normalizedRole.includes('middle') || normalizedRole === 'mid';
+  const isADC = normalizedRole.includes('adc') || normalizedRole.includes('bot') || normalizedRole === 'adc';
+  const isSupport = normalizedRole.includes('support') || normalizedRole.includes('sup') || normalizedRole === 'support';
+  
+  // Extract player stats
+  const kills = player.kills || player.k || 0;
+  const deaths = player.deaths || player.d || 0;
+  const assists = player.assists || player.a || 0;
+  const kda = deaths > 0 ? (kills + assists) / deaths : (kills + assists);
+  
+  // Get match duration in minutes (default to 25 if not provided)
+  const dur = matchData.duration || matchData.gameDuration || matchData.gameLength || 25;
+  const durMinutes = typeof dur === 'number' ? (dur > 100 ? dur / 60 : dur) : 25; // Convert seconds to minutes if needed
+  
+  // Calculate team totals
+  const teamKills = matchData.teamKills || matchData.totalKills || (kills + assists + 10); // Fallback estimate
+  const teamDmg = matchData.teamDamage || matchData.totalDamageDealtToChampions || 100000; // Fallback estimate
+  
+  // Extract additional stats
+  const totalDamageDealtToChampions = player.totalDamageDealtToChampions || player.damageDealt || player.damage || 0;
+  const totalDamageTaken = player.totalDamageTaken || player.damageTaken || 0;
+  const visionScore = player.visionScore || player.vision || 0;
+  const cs = player.cs || player.creepScore || player.totalMinionsKilled || (player.csPerMin ? player.csPerMin * durMinutes : 0);
+  const goldEarned = player.goldEarned || player.gold || player.goldEarned || 0;
+  const goldRate = goldEarned / Math.max(durMinutes, 1);
+  const turretTakedowns = player.turretTakedowns || player.turretKills || 0;
+  const dragonKills = player.dragonKills || player.dragonKills || 0;
+  const baronKills = player.baronKills || player.baronKills || 0;
+  
+  // Calculate damage ratio
+  const dmgRatio = teamDmg > 0 ? (totalDamageDealtToChampions / teamDmg) : 0;
+  
+  let opScore = 0;
+  
+  if (isJungle) {
+    // Jungle: 0.35 * kda + 0.25 * (((dragonKills || 0) + (baronKills || 0)) / dur) + 0.15 * ((visionScore || 0) / dur) + 0.15 * (goldRate / 500) + 0.1 * ((totalDamageDealtToChampions || 0) / teamDmg)
+    const objectiveScore = ((dragonKills || 0) + (baronKills || 0)) / Math.max(durMinutes, 1);
+    const visionScorePerMin = (visionScore || 0) / Math.max(durMinutes, 1);
+    const goldRateScore = goldRate / 500;
+    const dmgContribution = (totalDamageDealtToChampions || 0) / Math.max(teamDmg, 1);
+    
+    opScore = 0.35 * kda + 
+              0.25 * objectiveScore + 
+              0.15 * visionScorePerMin + 
+              0.15 * goldRateScore + 
+              0.1 * dmgContribution;
+  } else if (isMid) {
+    // Middle: 0.3 * kda + 0.25 * ((kills + assists) / teamKills) + 0.25 * dmgRatio + 0.1 * (cs / dur) + 0.1 * (goldRate / 500)
+    const killParticipation = (kills + assists) / Math.max(teamKills, 1);
+    const csPerMin = cs / Math.max(durMinutes, 1);
+    const goldRateScore = goldRate / 500;
+    
+    opScore = 0.3 * kda + 
+              0.25 * killParticipation + 
+              0.25 * dmgRatio + 
+              0.1 * csPerMin + 
+              0.1 * goldRateScore;
+  } else if (isADC) {
+    // ADC: 0.4 * ((totalDamageDealtToChampions || 0) / teamDmg) + 0.25 * kda + 0.15 * (cs / dur) + 0.1 * (goldRate / 500) + 0.1 * (1 - deaths / Math.max(1, dur))
+    const dmgContribution = (totalDamageDealtToChampions || 0) / Math.max(teamDmg, 1);
+    const csPerMin = cs / Math.max(durMinutes, 1);
+    const goldRateScore = goldRate / 500;
+    const survivalRate = 1 - (deaths / Math.max(durMinutes, 1));
+    
+    opScore = 0.4 * dmgContribution + 
+              0.25 * kda + 
+              0.15 * csPerMin + 
+              0.1 * goldRateScore + 
+              0.1 * survivalRate;
+  } else if (isSupport) {
+    // Support: 0.35 * kda + 0.3 * ((visionScore || 0) / dur) + 0.15 * (assists / teamKills) + 0.1 * (((totalDamageTaken || 0) / dur) / Math.max(1, (totalDamageDealtToChampions || 0) / dur)) + 0.1 * (((turretTakedowns || 0) + (dragonKills || 0) + (baronKills || 0)) / 5)
+    const visionScorePerMin = (visionScore || 0) / Math.max(durMinutes, 1);
+    const assistParticipation = assists / Math.max(teamKills, 1);
+    const damageTakenPerMin = (totalDamageTaken || 0) / Math.max(durMinutes, 1);
+    const damageDealtPerMin = (totalDamageDealtToChampions || 0) / Math.max(durMinutes, 1);
+    const tankRatio = damageTakenPerMin / Math.max(damageDealtPerMin, 1);
+    const objectiveScore = ((turretTakedowns || 0) + (dragonKills || 0) + (baronKills || 0)) / 5;
+    
+    opScore = 0.35 * kda + 
+              0.3 * visionScorePerMin + 
+              0.15 * assistParticipation + 
+              0.1 * tankRatio + 
+              0.1 * objectiveScore;
+  } else {
+    // Default/OP (Top): 0.3 * kda + 0.25 * dmgRatio + 0.2 * (goldRate / 500) + 0.15 * ((turretTakedowns || 0) / 5) + 0.1 * (cs / dur)
+    const goldRateScore = goldRate / 500;
+    const turretScore = (turretTakedowns || 0) / 5;
+    const csPerMin = cs / Math.max(durMinutes, 1);
+    
+    opScore = 0.3 * kda + 
+              0.25 * dmgRatio + 
+              0.2 * goldRateScore + 
+              0.15 * turretScore + 
+              0.1 * csPerMin;
+  }
+  
+  // Scale to 0-100 range (multiply by appropriate factor)
+  // Typical scores range from 0-10, so multiply by 10 to get 0-100
+  return Math.max(0, Math.min(100, opScore * 10));
+}
+
+// Map API response data to the expected leagueData structure
+function mapAPIDataToLeagueData(playerStats, questsData) {
+  console.log("🔍 Mapping API data. PlayerStats keys:", Object.keys(playerStats || {}));
+  console.log("🔍 PlayerStats structure:", playerStats);
+  
+  // Initialize player level
+  leagueData.playerLevel = {
+    level: 1,
+    totalXP: 0,
+    xpForNextLevel: 100,
+    xpIntoCurrentLevel: 0,
+    xpNeededToLevel: 100
+  };
+
+  // Map current rank - Lambda function now includes rank field
+  // Try multiple possible field names and structures
+  let rankData = null;
+  
+  // Check for rank in various locations
+  if (playerStats.rank) {
+    rankData = playerStats.rank;
+  } else if (playerStats.currentRank) {
+    rankData = playerStats.currentRank;
+  } else if (playerStats.ranked) {
+    rankData = playerStats.ranked;
+  } else if (playerStats.rankInfo) {
+    rankData = playerStats.rankInfo;
+  }
+  
+  if (rankData) {
+    console.log("📈 Rank data found:", rankData);
+    
+    // Handle different rank data structures
+    let tier = 'Unranked';
+    let division = 'IV';
+    let lp = 0;
+    
+    // Case 1: Rank is an object with tier, division, lp fields
+    if (typeof rankData === 'object' && !Array.isArray(rankData)) {
+      tier = rankData.tier || rankData.rankTier || rankData.tierName || 
+            (rankData.rank ? rankData.rank.split(' ')[0] : null) || 'Unranked';
+      division = rankData.division || rankData.rankDivision || 
+                (rankData.rank ? rankData.rank.split(' ')[1] : null) || 'IV';
+      lp = rankData.lp || rankData.leaguePoints || rankData.league_points || 
+           rankData.leaguepoints || 0;
+    }
+    // Case 2: Rank is a string like "Diamond III" or "Diamond III 67 LP"
+    else if (typeof rankData === 'string') {
+      const rankParts = rankData.trim().split(/\s+/);
+      if (rankParts.length >= 2) {
+        tier = rankParts[0];
+        division = rankParts[1];
+        // Check if LP is in the string (e.g., "Diamond III 67")
+        if (rankParts.length >= 3 && !isNaN(parseInt(rankParts[2]))) {
+          lp = parseInt(rankParts[2]);
+        }
+      } else if (rankParts.length === 1) {
+        tier = rankParts[0];
+      }
+    }
+    
+    leagueData.currentRank = {
+      tier: tier,
+      division: division,
+      lp: parseInt(lp) || 0
+    };
+    console.log("✅ Mapped current rank:", leagueData.currentRank);
+  } else {
+    console.warn("⚠️ No rank data found in API response. Available keys:", Object.keys(playerStats || {}));
+    // Set default rank if none found
+    leagueData.currentRank = { tier: 'Unranked', division: 'IV', lp: 0 };
+  }
+
+  // Map past season ranks (adjust based on actual API response)
+  if (playerStats.pastSeasonRanks || playerStats.seasonHistory) {
+    leagueData.pastSeasonRanks = (playerStats.pastSeasonRanks || playerStats.seasonHistory || []).map(season => ({
+      season: season.season || season.name || `Season ${season.year}`,
+      rank: season.rank || season.tier || 'Unranked'
+    }));
+  }
+
+  // Map most played champions (adjust based on actual API response)
+  const champions = playerStats.mostPlayedChampions || playerStats.champions || playerStats.championStats || 
+                   playerStats.topChampions || playerStats.champion_stats || [];
+  
+  if (champions.length > 0) {
+    console.log(`🏆 Found ${champions.length} champions in API response`);
+    leagueData.mostPlayedChampions = champions.map(champ => ({
+      name: champ.name || champ.championName || champ.champion || champ.champName || 'Unknown',
+      games: champ.games || champ.gamesPlayed || champ.totalGames || champ.total_games || 0,
+      winRate: champ.winRate ? `${champ.winRate}%` : 
+               (champ.wins && champ.losses) ? `${Math.round((champ.wins / (champ.wins + champ.losses)) * 100)}%` :
+               champ.winrate || champ.win_rate || '0%'
+    })).sort((a, b) => b.games - a.games).slice(0, 5);
+    console.log("✅ Mapped champions:", leagueData.mostPlayedChampions);
+  } else {
+    console.warn("⚠️ No champion data found in API response");
+    leagueData.mostPlayedChampions = [];
+  }
+
+  // Map match history (adjust based on actual API response)
+  // Try multiple possible field names for match history
+  const matches = playerStats.matches || playerStats.matchHistory || playerStats.match_history || 
+                  playerStats.games || playerStats.recentMatches || playerStats.recent_matches || 
+                  playerStats.match_data || [];
+  
+  console.log(`🎮 Found ${matches.length} matches in API response`);
+  if (matches.length > 0) {
+    console.log("📋 Sample match structure:", JSON.stringify(matches[0], null, 2));
+    console.log("📋 Sample match keys:", Object.keys(matches[0]));
+    
+    // Check for player roster in various places
+    const sampleMatch = matches[0];
+    if (sampleMatch.playerRoster) {
+      console.log("✅ Found playerRoster field with", sampleMatch.playerRoster.length, "players");
+    } else if (sampleMatch.participants) {
+      console.log("✅ Found participants field with", sampleMatch.participants.length, "participants");
+    } else if (sampleMatch.players) {
+      console.log("✅ Found players field with", sampleMatch.players.length, "players");
+    } else if (sampleMatch.teams) {
+      console.log("✅ Found teams field with", sampleMatch.teams.length, "teams");
+    } else {
+      console.warn("⚠️ No player roster found in sample match. Available fields:", Object.keys(sampleMatch));
+    }
+  }
+  
+  if (matches.length > 0) {
+    leagueData.matches = matches.map((match, index) => {
+      // Find player data in roster - try multiple ways to identify the player
+      let playerData = null;
+      
+      // Method 1: Look for isYou flag
+      if (match.playerRoster && Array.isArray(match.playerRoster)) {
+        playerData = match.playerRoster.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+      }
+      
+      // Method 2: Look in participants
+      if (!playerData && match.participants && Array.isArray(match.participants)) {
+        playerData = match.participants.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+      }
+      
+      // Method 3: Use playerData directly
+      if (!playerData && match.playerData) {
+        playerData = match.playerData;
+      }
+      
+      // Method 4: If playerRoster exists but no isYou flag, use first entry or search by Riot ID (gameName#tagLine)
+      if (!playerData && match.playerRoster && Array.isArray(match.playerRoster) && match.playerRoster.length > 0) {
+        // Try to find by matching Riot ID (gameName#tagLine)
+        if (userCredentials.gameName && userCredentials.tagLine) {
+          const searchName = `${userCredentials.gameName}#${userCredentials.tagLine}`.toLowerCase();
+          playerData = match.playerRoster.find(p => {
+            const playerName = (p.player || p.riotId || p.gameName || p.name || '').toLowerCase();
+            return playerName.includes(searchName) || playerName.includes(userCredentials.gameName.toLowerCase());
+          });
+        }
+        // If still not found, use first player (assume it's the player)
+        if (!playerData) {
+          playerData = match.playerRoster[0];
+        }
+      }
+      
+      // Extract KDA - API format is "kills/deaths/assists"
+      let kdaString = '0/0/0';
+      let parsedKills = 0;
+      let parsedAssists = 0;
+      let parsedDeaths = 0;
+      
+      if (match.kda && typeof match.kda === 'string') {
+        kdaString = match.kda;
+        // Parse KDA string: format is "kills/deaths/assists"
+        const kdaParts = kdaString.split('/');
+        if (kdaParts.length === 3) {
+          parsedKills = parseInt(kdaParts[0]) || 0;
+          parsedDeaths = parseInt(kdaParts[1]) || 0;
+          parsedAssists = parseInt(kdaParts[2]) || 0;
+        }
+      } else if (playerData) {
+        parsedKills = playerData.kills || playerData.k || 0;
+        parsedDeaths = playerData.deaths || playerData.d || 0;
+        parsedAssists = playerData.assists || playerData.a || 0;
+        // Format as "kills/deaths/assists" to match API format
+        kdaString = `${parsedKills}/${parsedDeaths}/${parsedAssists}`;
+      } else if (match.kills !== undefined || match.deaths !== undefined || match.assists !== undefined) {
+        parsedKills = match.kills || 0;
+        parsedDeaths = match.deaths || 0;
+        parsedAssists = match.assists || 0;
+        kdaString = `${parsedKills}/${parsedDeaths}/${parsedAssists}`;
+      }
+      
+      // Extract win status - try multiple formats
+      let winStatus = false;
+      if (match.win !== undefined) {
+        winStatus = match.win === true || match.win === 'true' || match.win === 1;
+      } else if (match.gameResult) {
+        winStatus = match.gameResult === 'Win' || match.gameResult === 'Victory' || match.gameResult === 'win';
+      } else if (match.result) {
+        winStatus = match.result === 'Win' || match.result === 'Victory' || match.result === 'win';
+      } else if (match.victory !== undefined) {
+        winStatus = match.victory === true || match.victory === 'true' || match.victory === 1;
+      } else if (playerData && playerData.win !== undefined) {
+        winStatus = playerData.win === true || playerData.win === 'true' || playerData.win === 1;
+      }
+      
+      // Calculate OP Score for the player using role-specific formula
+      let opScore = 75; // Default fallback
+      if (playerData) {
+        const matchDataForOpScore = {
+          duration: match.duration || match.gameDuration || match.gameLength || 25,
+          teamKills: match.teamKills || match.totalKills || 0,
+          teamDamage: match.teamDamage || match.totalDamageDealtToChampions || 0
+        };
+        opScore = calculateOpScore(playerData, role, matchDataForOpScore);
+      } else if (match.opScore || match.op_score || match.score || match.performanceScore) {
+        // Fallback to API-provided score if playerData not available
+        opScore = match.opScore || match.op_score || match.score || match.performanceScore || 75;
+      }
+      
+      // Extract date - try multiple formats
+      let dateString = new Date().toISOString().split('T')[0];
+      if (match.date) {
+        dateString = match.date;
+      } else if (match.gameCreation) {
+        // Convert timestamp to date string
+        const date = new Date(match.gameCreation);
+        dateString = date.toISOString().split('T')[0];
+      } else if (match.timestamp) {
+        const date = new Date(match.timestamp);
+        dateString = date.toISOString().split('T')[0];
+      } else if (match.gameEndTimestamp) {
+        const date = new Date(match.gameEndTimestamp);
+        dateString = date.toISOString().split('T')[0];
+      }
+      
+      // Extract champion - try multiple field names
+      const champion = match.champion || match.championName || match.champion_name || 
+                      match.champ || playerData?.champion || playerData?.championName || 'Unknown';
+      
+      // Extract role - try multiple field names
+      const role = match.role || match.lane || match.position || match.teamPosition || 
+                  playerData?.role || playerData?.lane || playerData?.position || 'Unknown';
+      
+      // Extract position (rank in match)
+      const position = match.position || match.rank || match.rankPosition || 
+                      playerData?.position || playerData?.rank || 5;
+      
+      // Extract player roster - try all possible field names
+      let playerRoster = match.playerRoster || match.participants || match.players || 
+                        match.team1 || match.team2 || match.allPlayers || 
+                        match.roster || match.player_list || [];
+      
+      // If still not found, check if it's nested
+      if (!playerRoster || (Array.isArray(playerRoster) && playerRoster.length === 0)) {
+        // Try nested structures
+        if (match.teams && Array.isArray(match.teams)) {
+          // Flatten teams array
+          playerRoster = match.teams.flatMap(team => team.players || team.members || []);
+        } else if (match.team1 && match.team2) {
+          // Combine team1 and team2
+          playerRoster = [...(match.team1.players || match.team1 || []), ...(match.team2.players || match.team2 || [])];
+        }
+      }
+      
+      if (!Array.isArray(playerRoster)) {
+        console.warn(`⚠️ Match ${index + 1}: playerRoster is not an array. Type: ${typeof playerRoster}, Value:`, playerRoster);
+        console.log(`   Available match keys:`, Object.keys(match));
+        playerRoster = [];
+      }
+      
+      if (playerRoster.length === 0) {
+        console.warn(`⚠️ Match ${index + 1}: No player roster found. Available match fields:`, Object.keys(match));
+        console.log(`   Full match object:`, JSON.stringify(match, null, 2));
+      } else {
+        console.log(`✅ Match ${index + 1}: Found ${playerRoster.length} players in roster`);
+      }
+      
+      // Calculate team totals for OP Score calculation
+      let teamKills = 0;
+      let teamDamage = 0;
+      playerRoster.forEach(p => {
+        teamKills += (p.kills || p.k || 0) + (p.assists || p.a || 0);
+        teamDamage += p.totalDamageDealtToChampions || p.damageDealt || p.damage || 0;
+      });
+      
+      // Match data for OP Score calculation
+      const matchDataForOpScore = {
+        duration: match.duration || match.gameDuration || match.gameLength || 25,
+        teamKills: match.teamKills || match.totalKills || teamKills,
+        teamDamage: match.teamDamage || match.totalDamageDealtToChampions || teamDamage
+      };
+      
+      // Ensure each player in roster has required fields and calculate OP Score
+      playerRoster = playerRoster.map((p, idx) => {
+        const playerRole = p.role || p.lane || p.position || role || 'Unknown';
+        
+        // Parse KDA from API - format is "kills/deaths/assists"
+        let playerKills = 0;
+        let playerAssists = 0;
+        let playerDeaths = 0;
+        
+        if (p.kda && typeof p.kda === 'string') {
+          // Parse KDA string: format is "kills/deaths/assists"
+          const kdaParts = p.kda.split('/');
+          if (kdaParts.length === 3) {
+            playerKills = parseInt(kdaParts[0]) || 0;
+            playerDeaths = parseInt(kdaParts[1]) || 0;
+            playerAssists = parseInt(kdaParts[2]) || 0;
+          }
+        } else {
+          // Fallback to individual fields
+          playerKills = p.kills || p.k || 0;
+          playerDeaths = p.deaths || p.d || 0;
+          playerAssists = p.assists || p.a || 0;
+        }
+        
+        // Calculate OP Score using role-specific formula
+        const calculatedOpScore = calculateOpScore({
+          ...p,
+          kills: playerKills,
+          deaths: playerDeaths,
+          assists: playerAssists
+        }, playerRole, matchDataForOpScore);
+        
+        return {
+          player: p.player || p.riotId || p.gameName || p.name || `Player ${idx + 1}`,
+          champion: p.champion || p.championName || 'Unknown',
+          role: playerRole,
+          kills: playerKills,
+          deaths: playerDeaths,
+          assists: playerAssists,
+          kda: p.kda || `${playerKills}/${playerDeaths}/${playerAssists}`, // Store original KDA string
+          score: calculatedOpScore, // Use calculated OP Score
+          opScore: calculatedOpScore,
+          position: p.position || p.rank || idx + 1,
+          isYou: p.isYou === true || p.isYou === 'true' || p.is_you === true || 
+                 (p.player && userCredentials.gameName && p.player.toLowerCase().includes(userCredentials.gameName.toLowerCase())),
+          goldEarned: p.goldEarned || p.gold_earned || p.gold || 0,
+          // Calculate CS/min as: creep score from API / 60
+          csPerMin: ((p.cs || p.creepScore || p.totalMinionsKilled || 0) / 60),
+          damageTaken: p.damageTaken || p.damage_taken || 0,
+          totalDamageDealtToChampions: p.totalDamageDealtToChampions || p.damageDealt || p.damage || 0,
+          visionScore: p.visionScore || p.vision || 0,
+          turretTakedowns: p.turretTakedowns || p.turretKills || 0,
+          dragonKills: p.dragonKills || 0,
+          baronKills: p.baronKills || 0,
+          items: p.items || p.itemsBought || []
+        };
+      });
+      
+      // Sort roster by OP Score (descending) and update positions
+      playerRoster.sort((a, b) => b.opScore - a.opScore);
+      playerRoster.forEach((p, idx) => {
+        p.position = idx + 1;
+      });
+      
+      console.log(`📊 Calculated OP Scores for ${playerRoster.length} players in match ${index + 1}`);
+      if (playerRoster.length > 0) {
+        console.log(`   Top player: ${playerRoster[0].player} (${playerRoster[0].role}) - OP Score: ${playerRoster[0].opScore.toFixed(2)}`);
+      }
+
+      return {
+        matchId: match.matchId || match.gameId || match.match_id || match.id || `match_${index + 1}`,
+        date: dateString,
+        champion: champion,
+        role: role,
+        win: winStatus,
+        kda: kdaString,
+        score: opScore,
+        opScore: opScore,
+        scoreHistory: match.scoreHistory || match.score_history || [opScore],
+        position: position,
+        pros: match.pros || match.strengths || match.pros_list || [],
+        cons: match.cons || match.weaknesses || match.cons_list || [],
+        playerRoster: playerRoster
+      };
+    });
+    console.log(`✅ Mapped ${leagueData.matches.length} matches`);
+    console.log("📋 Sample mapped match:", JSON.stringify(leagueData.matches[0], null, 2));
+  } else {
+    console.warn("⚠️ No matches found in API response");
+    // Keep existing matches or initialize empty
+    if (!leagueData.matches || leagueData.matches.length === 0) {
+      leagueData.matches = [];
+    }
+  }
+
+  // Map quests (if API provided them, otherwise generate locally)
+  if (questsData && questsData.quests) {
+    leagueData.quests = questsData.quests.map(quest => ({
+      title: quest.title || quest.name,
+      description: quest.description || quest.desc,
+      progress: quest.progress || '0/1',
+      difficulty: quest.difficulty || 'Medium',
+      xpReward: quest.xpReward || quest.xp || getXPForDifficulty(quest.difficulty || 'Medium'),
+      completed: quest.completed || false
+    }));
+  } else {
+    // Generate quests based on current rank if API didn't provide them
+    generateQuests();
+  }
+  
 }
 
 // Initialize with mock data (frontend-only for now)
@@ -589,7 +1945,7 @@ function checkAndOpenMatchFromUrl() {
     $('.tab[data-tab="3"]').addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
     
     // Load match history
-    fetchLeagueData().then(() => {
+    fetchLeagueData(false).then(() => {
       displayChampRoleOverview();
       
       // Wait for DOM to update, then open the specific match
@@ -804,168 +2160,208 @@ function generateFeedback(match, playerData, mode) {
   return feedback;
 }
 
-// Function to generate AI trash talk or compliment based on match stats
-function generateAIMessage(matchId) {
+// Helper function to convert a single match to matchSummary format
+function convertMatchToSummary(match) {
+  // Parse KDA
+  const kdaParts = match.kda ? match.kda.split('/') : ['0', '0', '0'];
+  const kills = parseInt(kdaParts[0]) || 0;
+  const deaths = parseInt(kdaParts[1]) || 0;
+  const assists = parseInt(kdaParts[2]) || 0;
+  
+  // Get player data from roster if available - find the current player
+  const playerData = match.playerRoster ? match.playerRoster.find(p => 
+    p.isYou === true || p.isYou === 'true' || p.is_you === true ||
+    (p.player && userCredentials.gameName && p.player.toLowerCase().includes(userCredentials.gameName.toLowerCase()))
+  ) : null;
+  
+  // Get champion - prioritize from playerData if available, then from match
+  // This ensures we get the champion the player actually played, not from a different player
+  let champion = match.champion || 'Unknown';
+  if (playerData && playerData.champion) {
+    champion = playerData.champion;
+  }
+  
+  // Get role - prioritize from playerData if available
+  let role = match.role || 'UNKNOWN';
+  if (playerData && playerData.role) {
+    role = playerData.role;
+  }
+  
+  // Get CS - use playerData if available, otherwise calculate from match data
+  let cs = 0;
+  if (playerData) {
+    // Try multiple field names for CS
+    cs = playerData.cs || 
+         (playerData.csPerMin ? Math.round(playerData.csPerMin * (parseInt(match.duration || 0) / 60)) : 0) ||
+         match.cs || 0;
+  } else {
+    cs = match.cs || 0;
+  }
+  
+  // Get damage - prioritize from playerData, try multiple field names
+  let damage = 0;
+  if (playerData) {
+    // The API uses damageToChamps, not damageDealt
+    damage = playerData.damageToChamps || 
+             playerData.totalDamageDealtToChampions || 
+             playerData.damageDealt || 
+             playerData.damage || 
+             match.damage || 0;
+  } else {
+    damage = match.damage || 0;
+  }
+  
+  // Get gold - prioritize from playerData
+  let gold = 0;
+  if (playerData) {
+    gold = playerData.goldEarned || playerData.gold || match.gold || 0;
+  } else {
+    gold = match.gold || 0;
+  }
+  
+  // Get vision - prioritize from playerData
+  let vision = 0;
+  if (playerData) {
+    vision = playerData.visionScore || playerData.vision || match.vision || 0;
+  } else {
+    vision = match.vision || 0;
+  }
+  
+  // Get game duration - convert seconds to readable format
+  let gameDuration = 'Unknown';
+  if (match.duration) {
+    // duration is in seconds, convert to "X min" format
+    const minutes = Math.floor(match.duration / 60);
+    gameDuration = `${minutes} min`;
+  } else if (match.gameDuration) {
+    gameDuration = match.gameDuration;
+  }
+  
+  const summary = {
+    champion: champion,
+    role: role,
+    kills: kills,
+    deaths: deaths,
+    assists: assists,
+    win: match.win !== undefined ? match.win : (match.result === 'Victory'),
+    cs: cs,
+    gold: gold,
+    damage: damage,
+    vision: vision,
+    gameDuration: gameDuration
+  };
+  
+  // Log for debugging
+  console.log(`🎮 Converting match to summary - Champion: ${champion}, Role: ${role}, KDA: ${kills}/${deaths}/${assists}`);
+  
+  return summary;
+}
+
+// Function to generate AI trash talk or compliment based on match stats using Lambda API
+async function generateAIMessage(matchId) {
   const match = leagueData.matches.find(m => m.matchId === matchId);
   if (!match) {
     showCopyNotification('Match data not found!');
     return;
   }
   
-  // Get player data from roster
-  const playerData = match.playerRoster ? match.playerRoster.find(p => p.isYou === true) : null;
-  
   // Get current mode (roast or compliment)
   const activeModeBtn = $(`.ai-mode-toggle.active-ai-mode[data-match-id="${matchId}"]`);
   const mode = activeModeBtn.length > 0 ? activeModeBtn.data('mode') : 'roast';
   
-  // Parse KDA
-  const kdaParts = match.kda.split('/');
-  const kills = parseInt(kdaParts[0]) || 0;
-  const deaths = parseInt(kdaParts[1]) || 0;
-  const assists = parseInt(kdaParts[2]) || 0;
-  const kda = deaths > 0 ? ((kills + assists) / deaths).toFixed(2) : (kills + assists).toFixed(2);
-  
-  let message = '';
-  
-  if (mode === 'roast') {
-    // ROAST MODE - Generate funny roasts
-    const roasts = [];
-    
-    // KDA-based roasts
-    if (deaths > kills) {
-      roasts.push(`Your KDA ratio is ${kda}, but your deaths make me think you're playing on hard mode.`);
-      roasts.push(`With ${deaths} deaths, your champion should've filed a restraining order.`);
-    }
-    if (kda < 1.0 && deaths > 5) {
-      roasts.push(`Your ${deaths} deaths suggest you might be collecting grey screens as NFTs.`);
-    }
-    
-    // Position-based roasts
-    if (match.position && match.position > 7) {
-      roasts.push(`Position #${match.position} out of 10? You're statistically more useful than a ward... barely.`);
-      roasts.push(`Finishing #${match.position} means you had 70% of the lobby doing better than you. Math is brutal.`);
-    }
-    
-    // CS-based roasts
-    if (playerData && playerData.csPerMin < 5) {
-      roasts.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min suggests you're farming champions instead of minions... unsuccessfully.`);
-    }
-    
-    // Gold-based roasts
-    if (playerData && playerData.goldEarned < 8000) {
-      roasts.push(`With ${playerData.goldEarned.toLocaleString()} gold earned, your build cost less than a League skin.`);
-    }
-    
-    // Score-based roasts
-    if (match.score && match.score < 70) {
-      roasts.push(`A score of ${match.score}? Your turret dives were statistically braver than your KDA suggests.`);
-      roasts.push(`Scoring ${match.score} means you contributed... something. We're still figuring out what.`);
-    }
-    
-    // Champion-specific roasts
-    if (match.champion === 'Yasuo' || match.champion === 'Yone') {
-      roasts.push(`Playing ${match.champion} with a ${kda} KDA? The wind is disappointed.`);
-    }
-    if (match.champion === 'Teemo') {
-      roasts.push(`Even Satan (${match.champion}) had a better day than you did.`);
-    }
-    
-    // Damage taken roasts
-    if (playerData && playerData.damageTaken > 20000 && playerData.deaths < 5) {
-      roasts.push(`You tanked ${playerData.damageTaken.toLocaleString()} damage like a champion, but your score says otherwise.`);
-    }
-    
-    // Generic fallbacks
-    if (roasts.length === 0) {
-      roasts.push(`Your performance was... memorable. For all the wrong reasons.`);
-      roasts.push(`That ${match.champion} game? Let's just say the replay is NSFW (Not Safe For Winrate).`);
-      roasts.push(`Your ${match.kda} KDA on ${match.champion} tells a story. It's a tragedy.`);
-    }
-    
-    const roast = roasts[Math.floor(Math.random() * roasts.length)];
-    const feedback = generateFeedback(match, playerData, mode);
-    message = `${roast} ${feedback}`;
-    
-  } else {
-    // COMPLIMENT MODE - Generate funny compliments
-    const compliments = [];
-    
-    // KDA-based compliments
-    if (kda > 3.0) {
-      compliments.push(`Your ${kda} KDA ratio? That's not a stat, that's a flex.`);
-      compliments.push(`With a ${kda} KDA, you're basically carrying your team like a backpack full of LP.`);
-    }
-    if (kills > 10 && deaths < 3) {
-      compliments.push(`${kills} kills with only ${deaths} deaths? You're playing 4D chess while enemies play checkers.`);
-    }
-    
-    // Position-based compliments
-    if (match.position && match.position <= 3) {
-      compliments.push(`Position #${match.position} out of 10? Top ${(match.position/10*100).toFixed(0)}% energy right there.`);
-      compliments.push(`Finishing #${match.position} means you outplayed ${10 - match.position} people. Respect.`);
-    }
-    
-    // CS-based compliments
-    if (playerData && playerData.csPerMin >= 8) {
-      compliments.push(`Your ${playerData.csPerMin.toFixed(1)} CS/min? Farmers only, but make it legendary.`);
-    }
-    
-    // Gold-based compliments
-    if (playerData && playerData.goldEarned > 12000) {
-      compliments.push(`Earning ${playerData.goldEarned.toLocaleString()} gold means you're basically Scrooge McDuck in the Rift.`);
-    }
-    
-    // Score-based compliments
-    if (match.score && match.score >= 90) {
-      compliments.push(`A score of ${match.score}? You didn't just win, you put on a clinic.`);
-      compliments.push(`Scoring ${match.score} means you're either smurfing or just built different. Both are valid.`);
-    }
-    
-    // Champion-specific compliments
-    if (match.champion === 'Lux') {
-      // Fake skill shot accuracy for demonstration
-      const accuracy = Math.floor(85 + Math.random() * 15); // 85-100%
-      compliments.push(`You landed ${accuracy}% of ${match.champion} Qs. Enemies should file a complaint.`);
-    }
-    if (match.champion === 'Jhin') {
-      compliments.push(`That ${match.champion} performance was a masterpiece. Four out of four stars.`);
-    }
-    if (match.champion === 'Thresh' || match.champion === 'Blitzcrank') {
-      compliments.push(`Your ${match.champion} hooks were landing so consistently, enemies thought you were scripting.`);
-    }
-    
-    // Support role compliments
-    if (match.role === 'Support' && assists > 15) {
-      compliments.push(`${assists} assists on ${match.champion}? You're the unsung hero your ADC doesn't deserve.`);
-    }
-    
-    // Damage taken compliments (for tanks)
-    if (playerData && playerData.damageTaken > 20000 && deaths < 4) {
-      compliments.push(`You tanked ${playerData.damageTaken.toLocaleString()} damage and lived to tell about it. Absolute unit.`);
-    }
-    
-    // Generic fallbacks
-    if (compliments.length === 0) {
-      compliments.push(`Your ${match.champion} game was solid. Sometimes consistency is the real win.`);
-      compliments.push(`That ${match.kda} KDA on ${match.champion}? Clean execution. The stats tell a good story.`);
-      compliments.push(`You played ${match.champion} like you had something to prove. Consider it proven.`);
-    }
-    
-    const compliment = compliments[Math.floor(Math.random() * compliments.length)];
-    const feedback = generateFeedback(match, playerData, mode);
-    message = `${compliment} ${feedback}`;
-  }
-  
-  // Display the message
+  // Show loading state
   const messageContainer = $(`#ai-message-${matchId}`);
   const messageText = $(`#ai-text-${matchId}`);
+  messageContainer.removeClass('hidden');
+  messageText.html('<div class="flex items-center gap-2 text-gray-400"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-sky-500"></div>Generating AI feedback...</div>');
   
-  messageText.text(message);
-  messageContainer.removeClass('hidden').addClass('fade-in');
-  
-  // Store message for sharing
-  messageContainer.data('ai-message', message);
+  try {
+    // Log the match being analyzed
+    console.log(`🎯 Generating AI feedback for match ${matchId}:`);
+    console.log(`   Champion: ${match.champion}, Role: ${match.role}, KDA: ${match.kda}`);
+    
+    // Convert match to summary format
+    const matchSummary = convertMatchToSummary(match);
+    
+    // CRITICAL: Force the champion to match the match being viewed
+    // This ensures we're analyzing the correct champion
+    const correctChampion = match.champion;
+    if (matchSummary.champion !== correctChampion) {
+      console.warn(`⚠️ Champion mismatch detected!`);
+      console.warn(`   Match champion: ${correctChampion}`);
+      console.warn(`   Summary champion: ${matchSummary.champion}`);
+      console.warn(`   FORCING champion to: ${correctChampion}`);
+      matchSummary.champion = correctChampion;
+    }
+    
+    // Double-check: ensure we have the correct champion
+    if (!matchSummary.champion || matchSummary.champion === 'Unknown') {
+      console.error(`❌ Invalid champion in summary! Using match champion: ${correctChampion}`);
+      matchSummary.champion = correctChampion;
+    }
+    
+    // Verify all data is correct before sending
+    console.log(`✅ Final match summary before sending:`);
+    console.log(`   Champion: ${matchSummary.champion} (should be ${correctChampion})`);
+    console.log(`   Role: ${matchSummary.role}`);
+    console.log(`   KDA: ${matchSummary.kills}/${matchSummary.deaths}/${matchSummary.assists}`);
+    console.log(`   Win: ${matchSummary.win}`);
+    
+    // Prepare player info
+    const player = {
+      puuid: leagueData.player?.puuid || '',
+      gameName: userCredentials.gameName || '',
+      tagLine: userCredentials.tagLine || ''
+    };
+    
+    // IMPORTANT: Send ONLY this single match, not multiple matches
+    // The array should contain exactly ONE match summary
+    const matchesToSend = [matchSummary];
+    
+    console.log(`📨 Sending ${matchesToSend.length} match(es) to Lambda for ${correctChampion} feedback`);
+    
+    // Call Lambda API to get AI feedback
+    const feedback = await getAIFeedback(player, matchesToSend);
+    
+    // Display the appropriate feedback based on mode
+    const feedbackText = mode === 'roast' ? feedback.roast : feedback.compliment;
+    
+    messageText.text(feedbackText || 'Failed to generate feedback');
+    messageContainer.addClass('fade-in');
+    
+    // Store both roast and compliment for sharing
+    messageContainer.data('ai-message', feedbackText);
+    messageContainer.data('ai-roast', feedback.roast);
+    messageContainer.data('ai-compliment', feedback.compliment);
+    
+    // Note: Mode toggle switching is handled by the existing click handler in displayChampRoleOverview
+    // The feedback is now stored in data attributes so it can be switched without regenerating
+    
+  } catch (error) {
+    console.error('Error generating AI feedback:', error);
+    
+    // Fallback to local generation if Lambda fails
+    const playerData = match.playerRoster ? match.playerRoster.find(p => p.isYou === true) : null;
+    const kdaParts = match.kda.split('/');
+    const kills = parseInt(kdaParts[0]) || 0;
+    const deaths = parseInt(kdaParts[1]) || 0;
+    const assists = parseInt(kdaParts[2]) || 0;
+    const kda = deaths > 0 ? ((kills + assists) / deaths).toFixed(2) : (kills + assists).toFixed(2);
+    
+    let message = '';
+    const feedback = generateFeedback(match, playerData, mode);
+    
+    if (mode === 'roast') {
+      message = `⚠️ AI generation failed, using local feedback: ${feedback}`;
+    } else {
+      message = `⚠️ AI generation failed, using local feedback: ${feedback}`;
+    }
+    
+    messageText.text(message);
+    messageContainer.data('ai-message', message);
+    
+    showCopyNotification('AI generation failed. Using local feedback instead.');
+  }
 }
 
 // Function to share AI message to clipboard (Discord-ready)
@@ -982,7 +2378,7 @@ function shareAIMessage(matchId) {
   if (!match) return;
   
   // Format as Discord-ready message with match context
-  const shareText = `${message}\n\n📊 ${match.champion} ${match.role} | ${match.kda} KDA | ${match.win ? 'Victory' : 'Defeat'} | ${match.date}`;
+  const shareText = `${message}\n\n📊 ${match.champion} ${match.role} | ${match.kda} KDA | ${match.win ? 'Victory' : 'Defeat'} | ${formatDate(match.date)}`;
   
   navigator.clipboard.writeText(shareText).then(() => {
     showCopyNotification('AI message copied to clipboard!');
@@ -1019,25 +2415,55 @@ function displayChampRoleOverview() {
   leagueData.matches.forEach((match, index) => {
     const winClass = match.win ? 'victory' : 'defeat';
     const winText = match.win ? 'Victory' : 'Defeat';
-    const winImage = match.win ? 'Images/Victory.png' : 'Images/Defeat.png';
-    const imageSize = match.win ? 'h-[512px]' : 'h-20';
     
     const borderColor = match.win ? 'border-emerald-500' : 'border-red-500';
     const resultBg = match.win ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500';
     
+    // Neon text colors and glow effects
+    const neonColor = match.win ? '#10b981' : '#ef4444'; // emerald-500 for victory, red-500 for defeat
+    const neonGlow = match.win 
+      ? '0 0 10px #10b981, 0 0 20px #10b981, 0 0 30px #10b981, 0 0 40px #10b981' 
+      : '0 0 10px #ef4444, 0 0 20px #ef4444, 0 0 30px #ef4444, 0 0 40px #ef4444';
+    
     html += `<div class="bg-slate-800 border ${borderColor} rounded-lg overflow-hidden" data-match-id="${match.matchId}" style="border-left-width: 3px;">`;
-    html += '<div class="match-header flex items-center gap-4 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
-    html += `<div class="h-12 w-16 flex items-center justify-center overflow-visible"><img src="${winImage}" alt="${winText}" class="${imageSize} w-auto object-contain"></div>`;
+    html += '<div class="match-header flex items-center gap-8 p-4 hover:bg-slate-800/50 transition-colors cursor-pointer" style="border-bottom: 1px solid #334155;">';
+    html += `<div class="h-12 w-20 flex items-center justify-center overflow-visible mr-4"><span class="neon-text font-bold text-lg uppercase tracking-wider" style="color: ${neonColor}; text-shadow: ${neonGlow};">${winText}</span></div>`;
     html += '<div class="flex-1">';
-    html += `<div class="text-xs text-gray-500">${match.date}</div>`;
+    html += `<div class="text-xs text-gray-500">${formatDate(match.date)}</div>`;
     html += `<div class="text-base font-semibold text-gray-100">${match.champion}</div>`;
     html += `<div class="text-xs text-gray-400">${match.role}</div>`;
     html += '</div>';
     html += `<div class="text-sm text-gray-400 font-medium px-4">${match.kda}</div>`;
     
-    // Only show position if it exists (detailed matches)
-    if (match.position) {
-      html += `<div class="text-sky-400 font-bold">#${match.position}/10</div>`;
+    // Find player's position in this match
+    let playerPosition = null;
+    if (match.playerRoster && Array.isArray(match.playerRoster)) {
+      const playerInMatch = match.playerRoster.find(p => 
+        p.isYou === true || 
+        p.isYou === 'true' || 
+        p.is_you === true ||
+        (p.player && userCredentials.gameName && p.player.toLowerCase().includes(userCredentials.gameName.toLowerCase()))
+      );
+      if (playerInMatch) {
+        playerPosition = playerInMatch.position || playerInMatch.rank;
+      }
+    }
+    if (!playerPosition && match.position) {
+      playerPosition = match.position;
+    }
+    
+    // Show position with highlight if it's the player's position
+    if (playerPosition) {
+      const isPlayerPosition = match.playerRoster && match.playerRoster.some(p => 
+        (p.position || p.rank) === playerPosition && 
+        (p.isYou === true || p.isYou === 'true' || p.is_you === true ||
+         (p.player && userCredentials.gameName && p.player.toLowerCase().includes(userCredentials.gameName.toLowerCase())))
+      );
+      if (isPlayerPosition) {
+        html += `<div class="text-sky-400 font-bold bg-sky-500/20 px-3 py-1 rounded border border-sky-500">#${playerPosition}/10</div>`;
+      } else {
+        html += `<div class="text-sky-400 font-bold">#${playerPosition}/10</div>`;
+      }
     } else {
       html += `<div class="text-sky-400 font-bold">-</div>`;
     }
@@ -1051,7 +2477,8 @@ function displayChampRoleOverview() {
     html += '</div>';
     
     // Only render detailed sections if match has detailed data
-    const hasDetailedData = match.playerRoster && match.scoreHistory && match.pros && match.cons;
+    // Check if playerRoster exists and has at least one player
+    const hasDetailedData = match.playerRoster && Array.isArray(match.playerRoster) && match.playerRoster.length > 0;
     
     html += `<div id="expanded-${match.matchId}" style="display: none;" class="bg-slate-900 p-6">`;
     
@@ -1068,41 +2495,112 @@ function displayChampRoleOverview() {
       // Match Leaderboard
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5">';
       html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Match Leaderboard</h4>';
-      html += '<div class="space-y-2">';
       
-      match.playerRoster.forEach((player, idx) => {
-      const playerId = player.player.replace(/\s+/g, '_') + '_' + idx;
-      const youClass = player.isYou ? 'bg-sky-500/10 border-sky-500' : 'bg-slate-700 border-slate-700';
-      const topThreeBgs = {
-        1: 'bg-yellow-500/10 border-yellow-500',
-        2: 'bg-gray-400/10 border-gray-400',
-        3: 'bg-orange-500/10 border-orange-500'
-      };
-      const topClass = topThreeBgs[player.position] || youClass;
+      // Check if playerRoster exists and has players
+      if (match.playerRoster && Array.isArray(match.playerRoster) && match.playerRoster.length > 0) {
+        html += '<div class="space-y-2">';
+        
+        match.playerRoster.forEach((player, idx) => {
+          const playerId = (player.player || `Player_${idx}`).replace(/\s+/g, '_') + '_' + idx;
+          
+          // Check if this is the current player
+          const isCurrentPlayer = player.isYou === true || 
+                                 player.isYou === 'true' || 
+                                 player.is_you === true ||
+                                 (player.player && userCredentials.gameName && 
+                                  player.player.toLowerCase().includes(userCredentials.gameName.toLowerCase()));
+          
+          // Highlighting logic: Player gets priority, then top 3
+          let rowClass = 'bg-slate-700 border-slate-700';
+          let positionClass = 'text-sky-400';
+          
+          if (isCurrentPlayer) {
+            // Player's row gets strong blue highlight
+            rowClass = 'bg-sky-500/20 border-sky-500 border-2';
+            positionClass = 'text-sky-300 font-bold';
+          } else {
+            // Top 3 positions get special colors
+            const topThreeBgs = {
+              1: 'bg-yellow-500/10 border-yellow-500',
+              2: 'bg-gray-400/10 border-gray-400',
+              3: 'bg-orange-500/10 border-orange-500'
+            };
+            const position = player.position || idx + 1;
+            rowClass = topThreeBgs[position] || rowClass;
+          }
+          
+          const position = player.position || idx + 1;
+          
+          // Format score with 1 decimal place
+          const score = (player.score || player.opScore || 0).toFixed(1);
+          
+          html += '<div class="grid grid-cols-6 gap-3 items-center p-3 rounded-lg border hover:bg-slate-700/50 transition-colors ' + rowClass + '" data-player-id="' + playerId + '">';
+          
+          // Position with special styling for player
+          if (isCurrentPlayer) {
+            html += `<div class="${positionClass} font-bold text-sm bg-sky-500/30 px-2 py-1 rounded">#${position}</div>`;
+          } else {
+            html += `<div class="text-sky-400 font-bold text-sm">#${position}</div>`;
+          }
+          
+          // Player name with highlight if it's you
+          if (isCurrentPlayer) {
+            html += `<div class="font-bold text-sm text-sky-300">${player.player || `Player ${idx + 1}`} (You)</div>`;
+          } else {
+            html += `<div class="font-semibold text-sm">${player.player || `Player ${idx + 1}`}</div>`;
+          }
+          
+          html += `<div class="text-gray-400 text-sm">${player.champion || 'Unknown'}</div>`;
+          html += `<div class="text-gray-500 text-xs">${player.role || 'Unknown'}</div>`;
+          html += `<div class="text-sky-400 font-bold text-sm text-right">${score}</div>`;
+          html += '<div class="text-center">📊</div>';
+          html += '</div>';
+          
+          // Player details - ALWAYS VISIBLE (not expandable)
+          // Parse KDA from API format: "kills/deaths/assists" (first=kills, second=deaths, third=assists)
+          let displayKills = 0;
+          let displayAssists = 0;
+          let displayDeaths = 0;
+          
+          // Parse KDA string: format is "kills/deaths/assists"
+          // First number = Kills, Second number = Deaths, Third number = Assists
+          if (player.kda && typeof player.kda === 'string') {
+            const kdaParts = player.kda.split('/');
+            if (kdaParts.length === 3) {
+              displayKills = parseInt(kdaParts[0]) || 0;      // First number = Kills
+              displayDeaths = parseInt(kdaParts[1]) || 0;     // Second number = Deaths
+              displayAssists = parseInt(kdaParts[2]) || 0;    // Third number = Assists
+            }
+          } else if (player.kills !== undefined || player.deaths !== undefined || player.assists !== undefined) {
+            // Fallback to individual fields if KDA string not available
+            displayKills = player.kills || 0;
+            displayDeaths = player.deaths || 0;
+            displayAssists = player.assists || 0;
+          }
+          
+          // Calculate KDA: (Kills + Assists) / Deaths, rounded to 2 decimal places (hundredths)
+          const kdaRatio = displayDeaths > 0 ? (displayKills + displayAssists) / displayDeaths : (displayKills + displayAssists);
+          
+          html += `<div class="${playerId} bg-slate-800 border border-slate-700 rounded-lg p-4 mt-2">`;
+          html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">';
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Kills</div><div class="text-base font-bold text-gray-200">${displayKills}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Assists</div><div class="text-base font-bold text-gray-200">${displayAssists}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Deaths</div><div class="text-base font-bold text-gray-200">${displayDeaths}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">KDA</div><div class="text-base font-bold text-emerald-400">${kdaRatio.toFixed(2)}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">CS/min</div><div class="text-base font-bold text-gray-200">${(player.csPerMin || 0).toFixed(1)}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Gold</div><div class="text-base font-bold text-gray-200">${(player.goldEarned || 0).toLocaleString()}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">DMG Taken</div><div class="text-base font-bold text-gray-200">${(player.damageTaken || 0).toLocaleString()}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Vision Score</div><div class="text-base font-bold text-gray-200">${(player.visionScore || 0)}</div></div>`;
+          html += `<div class="bg-slate-900 rounded p-2 col-span-2 md:col-span-4"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Items</div><div class="text-sm font-semibold text-gray-200">${(player.items && player.items.length > 0) ? player.items.join(', ') : 'N/A'}</div></div>`;
+          html += '</div></div>';
+        });
+        
+        html += '</div>'; // Close space-y-2
+      } else {
+        html += '<div class="text-gray-400 text-center py-4">No player roster data available for this match.</div>';
+      }
       
-      html += '<div class="grid grid-cols-6 gap-3 items-center p-3 rounded-lg border hover:bg-slate-700/50 transition-colors cursor-pointer ' + topClass + '" data-player-id="' + playerId + '">';
-      html += `<div class="text-sky-400 font-bold text-sm">#${player.position}</div>`;
-      html += `<div class="font-semibold text-sm">${player.player}</div>`;
-      html += `<div class="text-gray-400 text-sm">${player.champion}</div>`;
-      html += `<div class="text-gray-500 text-xs">${player.role}</div>`;
-      html += `<div class="text-sky-400 font-bold text-sm text-right">${player.score}</div>`;
-      html += '<div class="text-center">📊</div>';
-      html += '</div>';
-      
-      html += `<div class="${playerId} bg-slate-800 border border-slate-700 rounded-lg p-5 mt-2" style="display: none;">`;
-      html += '<div class="grid grid-cols-2 md:grid-cols-4 gap-4">';
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Kills</div><div class="text-lg font-bold text-gray-200">${player.kills}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Deaths</div><div class="text-lg font-bold text-gray-200">${player.deaths}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Assists</div><div class="text-lg font-bold text-gray-200">${player.assists}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">KDA</div><div class="text-lg font-bold text-gray-200">${((player.kills + player.assists) / player.deaths).toFixed(2)}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">CS/min</div><div class="text-lg font-bold text-gray-200">${player.csPerMin}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Gold</div><div class="text-lg font-bold text-gray-200">${player.goldEarned.toLocaleString()}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">DMG Taken</div><div class="text-lg font-bold text-gray-200">${player.damageTaken.toLocaleString()}</div></div>`;
-      html += `<div class="bg-slate-900 rounded p-3 col-span-2 md:col-span-4"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Items</div><div class="text-sm font-semibold text-gray-200">${player.items.join(', ')}</div></div>`;
-      html += '</div></div>';
-    });
-    
-      html += '</div></div>'; // leaderboard close, space-y-2 close
+      html += '</div>'; // Close leaderboard container
       
       // Pros and Cons Section
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
@@ -1168,7 +2666,26 @@ function displayChampRoleOverview() {
       html += '</div>'; // AI Generator section
     } else {
       // Show message for matches without detailed data
-      html += '<div class="text-gray-400 text-center py-8">Detailed match data not available for this match.</div>';
+      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-6">';
+      html += '<div class="text-gray-400 text-center py-4">';
+      html += '<p class="mb-2">⚠️ Detailed match data not available for this match.</p>';
+      html += '<p class="text-sm text-gray-500">The API response does not include player roster data for this match.</p>';
+      html += '<p class="text-xs text-gray-600 mt-2">Check the browser console (F12) for API response details.</p>';
+      html += '</div>';
+      html += '</div>';
+      
+      // Log diagnostic info
+      console.warn(`⚠️ Match ${match.matchId || match.matchId || 'unknown'}: No playerRoster data available`);
+      console.log(`   Match data:`, {
+        matchId: match.matchId,
+        champion: match.champion,
+        role: match.role,
+        win: match.win,
+        kda: match.kda,
+        opScore: match.opScore,
+        hasPlayerRoster: !!match.playerRoster,
+        playerRosterLength: match.playerRoster ? match.playerRoster.length : 0
+      });
     }
     
     html += '</div>'; // expanded
@@ -1200,24 +2717,20 @@ function displayChampRoleOverview() {
           createOpScoreBarChart(canvas, match.opScore);
         }
       }
+      
+      // Auto-generate AI feedback when match is expanded (if not already generated)
+      const messageContainer = $(`#ai-message-${matchId}`);
+      if (messageContainer.length > 0 && !messageContainer.data('ai-roast')) {
+        // Small delay to let the UI render first
+        setTimeout(() => {
+          generateAIMessage(matchId);
+        }, 500);
+      }
     }
   });
   
-  // Setup click handlers for player details
-  $('[data-player-id]').off('click').on('click', function(event) {
-    event.stopPropagation(); // Prevent event from bubbling to match header
-    const playerId = $(this).data('player-id');
-    const details = $(`.${playerId}`);
-    
-    // Close all other details
-    $('[data-player-id]').next().not(`.${playerId}`).slideUp();
-    
-    if (details.is(':visible')) {
-      details.slideUp();
-    } else {
-      details.slideDown();
-    }
-  });
+  // Player stats are now always visible, no need for click handlers
+  // Removed click handlers since stats are always shown
   
   // Setup click handlers for pros/cons toggle
   $('.match-analysis-toggle').off('click').on('click', function(event) {
@@ -1243,6 +2756,19 @@ function displayChampRoleOverview() {
     // Update active state for both buttons in this match
     $(`.ai-mode-toggle[data-match-id="${matchId}"]`).removeClass('active-ai-mode bg-sky-500 text-white').addClass('bg-slate-700 text-gray-300');
     $(this).addClass('active-ai-mode bg-sky-500 text-white').removeClass('bg-slate-700 text-gray-300');
+    
+    // If feedback is already generated, switch between roast and compliment
+    const messageContainer = $(`#ai-message-${matchId}`);
+    const messageText = $(`#ai-text-${matchId}`);
+    
+    if (messageContainer.is(':visible') && messageContainer.data('ai-roast') && messageContainer.data('ai-compliment')) {
+      // Switch to the selected mode's feedback
+      const feedbackText = mode === 'roast' ? messageContainer.data('ai-roast') : messageContainer.data('ai-compliment');
+      if (feedbackText) {
+        messageText.text(feedbackText);
+        messageContainer.data('ai-message', feedbackText);
+      }
+    }
   });
   
   // Setup click handler for generate AI button
@@ -1293,7 +2819,7 @@ function createOpScoreBarChart(canvas, opScore) {
         tooltip: {
           callbacks: {
             label: function(context) {
-              return `OP Score: ${context.parsed.y.toFixed(1)}`;
+              return `OP Score: ${context.parsed.y.toFixed(1)}/10`;
             }
           }
         }
@@ -1301,17 +2827,17 @@ function createOpScoreBarChart(canvas, opScore) {
       scales: {
         y: {
           beginAtZero: true,
-          max: 100,
+          max: 10,
           grid: {
             color: '#334155'
           },
           ticks: {
             color: '#94A3B8',
-            stepSize: 20
+            stepSize: 2
           },
           title: {
             display: true,
-            text: 'OP Score',
+            text: 'OP Score (out of 10)',
             color: '#94A3B8'
           }
         },
@@ -1392,25 +2918,110 @@ function calculateAndDisplayProfileStats(matches) {
     gameLengthCount++;
     
     // Get player stats from playerRoster if available
+    // Use the same robust player-finding logic as in mapAPIDataToLeagueData
+    let playerData = null;
+    
+    // Method 1: Look for isYou flag in playerRoster
     if (match.playerRoster && Array.isArray(match.playerRoster)) {
-      const playerData = match.playerRoster.find(p => p.isYou === true);
-      if (playerData) {
-        // Gold earned
-        if (playerData.goldEarned !== undefined) {
-          totalGoldEarned += playerData.goldEarned;
-          goldCount++;
-        }
-        
-        // Creep score - calculate from CS/min if available
-        if (playerData.csPerMin !== undefined) {
-          // Use actual game length if available, otherwise use estimated
-          const estimatedCS = playerData.csPerMin * gameLength;
-          totalCreepScore += estimatedCS;
-          csCount++;
-        }
+      playerData = match.playerRoster.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+    }
+    
+    // Method 2: Look in participants
+    if (!playerData && match.participants && Array.isArray(match.participants)) {
+      playerData = match.participants.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+    }
+    
+    // Method 3: Use playerData directly
+    if (!playerData && match.playerData) {
+      playerData = match.playerData;
+    }
+    
+    // Method 4: If playerRoster exists but no isYou flag, search by Riot ID (gameName#tagLine)
+    if (!playerData && match.playerRoster && Array.isArray(match.playerRoster) && match.playerRoster.length > 0) {
+      // Try to find by matching Riot ID (gameName#tagLine)
+      if (userCredentials.gameName && userCredentials.tagLine) {
+        const searchName = `${userCredentials.gameName}#${userCredentials.tagLine}`.toLowerCase();
+        playerData = match.playerRoster.find(p => {
+          const playerName = (p.player || p.riotId || p.gameName || p.name || '').toLowerCase();
+          return playerName.includes(searchName) || playerName.includes(userCredentials.gameName.toLowerCase());
+        });
+      }
+      // If still not found, try matching just the gameName
+      if (!playerData && userCredentials.gameName) {
+        const searchName = userCredentials.gameName.toLowerCase();
+        playerData = match.playerRoster.find(p => {
+          const playerName = (p.player || p.riotId || p.gameName || p.name || '').toLowerCase();
+          return playerName.includes(searchName);
+        });
+      }
+    }
+    
+    if (playerData) {
+      // Gold earned - check multiple possible property names
+      // goldEarned can be 0, so we check for !== undefined and !== null
+      const goldEarned = playerData.goldEarned !== undefined && playerData.goldEarned !== null 
+        ? playerData.goldEarned 
+        : (playerData.gold_earned !== undefined && playerData.gold_earned !== null 
+            ? playerData.gold_earned 
+            : (playerData.gold !== undefined && playerData.gold !== null ? playerData.gold : null));
+      
+      // Also check if gold might be stored directly on the match object
+      const matchGoldEarned = match.goldEarned !== undefined && match.goldEarned !== null
+        ? match.goldEarned
+        : (match.gold_earned !== undefined && match.gold_earned !== null
+            ? match.gold_earned
+            : (match.gold !== undefined && match.gold !== null ? match.gold : null));
+      
+      // Use playerData gold first, fallback to match gold
+      const finalGoldEarned = goldEarned !== null && goldEarned !== undefined ? goldEarned : matchGoldEarned;
+      
+      // Debug logging (only log first match to avoid spam)
+      if (goldCount === 0 && matches.indexOf(match) === 0) {
+        console.log('🔍 Gold Earned Debug - First Match:', {
+          playerDataFound: !!playerData,
+          playerDataKeys: playerData ? Object.keys(playerData) : [],
+          goldEarned: playerData?.goldEarned,
+          gold_earned: playerData?.gold_earned,
+          gold: playerData?.gold,
+          matchGoldEarned: match.goldEarned,
+          matchGold_earned: match.gold_earned,
+          matchGold: match.gold,
+          finalGoldEarned: finalGoldEarned,
+          playerRosterLength: match.playerRoster?.length,
+          matchKeys: Object.keys(match).slice(0, 10) // First 10 keys
+        });
+      }
+      
+      if (finalGoldEarned !== null && finalGoldEarned !== undefined) {
+        totalGoldEarned += Number(finalGoldEarned);
+        goldCount++;
+      }
+      
+      // Creep score - calculate from CS/min if available
+      if (playerData.csPerMin !== undefined) {
+        // Use actual game length if available, otherwise use estimated
+        const estimatedCS = playerData.csPerMin * gameLength;
+        totalCreepScore += estimatedCS;
+        csCount++;
+      }
+    } else {
+      // Debug: Log when playerData is not found (only for first few matches)
+      if (matches.indexOf(match) < 3) {
+        console.log(`⚠️ Gold Debug - Match ${matches.indexOf(match) + 1}: Player data not found`, {
+          hasPlayerRoster: !!match.playerRoster,
+          playerRosterLength: match.playerRoster?.length,
+          hasParticipants: !!match.participants,
+          participantsLength: match.participants?.length,
+          hasPlayerData: !!match.playerData,
+          gameName: userCredentials.gameName,
+          tagLine: userCredentials.tagLine
+        });
       }
     }
   });
+  
+  // Debug: Log summary of gold data collection
+  console.log(`💰 Gold Earned Summary: Found gold data in ${goldCount} out of ${matches.length} matches`);
   
   // Find most played champion(s) - handle ties
   const championValues = Object.values(championCounts);
@@ -1652,7 +3263,7 @@ function displayScore() {
         labels: recentMatches.map((m, i) => `Match ${recentMatches.length - i}`),
         datasets: [{
           label: 'OP Score',
-          data: recentMatches.map(m => m.opScore),
+          data: recentMatches.map(m => m.opScore || 0),
           borderColor: '#0080FF', // Temporary neon blue, will be replaced by plugin
           backgroundColor: 'rgba(0, 128, 255, 0.2)', // Temporary neon blue, will be replaced by plugin
           borderWidth: 4,
@@ -1749,7 +3360,7 @@ function displayScore() {
                 const match = recentMatches[index];
                 if (!match) return 'Match Data';
                 const winText = match.win ? 'Victory' : 'Defeat';
-                return `${match.date} - ${winText}`;
+                return `${formatDate(match.date)} - ${winText}`;
               },
               label: function(context) {
                 // Return empty array to hide default label since we'll use afterBody
@@ -1763,12 +3374,12 @@ function displayScore() {
                 const prefix = match.win ? '✓' : '✗';
                 const labels = [
                   `${prefix} ${match.champion} (${match.role})`,
-                  `OP Score: ${match.opScore}`,
+                  `OP Score: ${(match.opScore || 0).toFixed(1)}/10`,
                   `KDA: ${match.kda}`
                 ];
                 // Add score if it exists in the match data
                 if (match.score !== undefined) {
-                  labels.push(`Score: ${match.score}`);
+                  labels.push(`Score: ${match.score.toFixed(1)}/10`);
                 }
                 return labels;
               }
@@ -1778,6 +3389,7 @@ function displayScore() {
         scales: {
           y: {
             beginAtZero: false,
+            max: 10,
             grid: {
               color: 'rgba(0, 128, 255, 0.15)', // Subtle neon blue grid lines
               lineWidth: 1,
@@ -1791,11 +3403,12 @@ function displayScore() {
                 weight: 'bold'
               },
               backdropColor: 'rgba(15, 23, 42, 0.8)',
-              padding: 6
+              padding: 6,
+              stepSize: 1
             },
             title: {
               display: true,
-              text: 'OP Score',
+              text: 'OP Score (out of 10)',
               color: '#00BFFF', // Bright neon blue title
               font: {
                 size: 13,
@@ -1886,6 +3499,13 @@ function extractTierFromRank(rankString) {
 
 // Function to display overview information
 function displayOverview() {
+  console.log("📊 displayOverview called - Current leagueData:", {
+    rank: leagueData.currentRank,
+    matchesCount: leagueData.matches.length,
+    championsCount: leagueData.mostPlayedChampions.length,
+    pastSeasonsCount: leagueData.pastSeasonRanks.length
+  });
+  
   // Current Rank Section (if available) - non-uniform box (wide but not tall)
   let html = '';
   if (leagueData.currentRank) {
@@ -2278,7 +3898,7 @@ function showDuoResults(player1, player2, duoMatches, stats) {
         html += `<div class="border rounded-lg p-3 ${winClass}">`;
         html += `<div class="flex justify-between items-center">`;
         html += `<div>`;
-        html += `<div class="text-sm font-semibold text-gray-200">${duo.match.date}</div>`;
+        html += `<div class="text-sm font-semibold text-gray-200">${formatDate(duo.match.date)}</div>`;
         html += `<div class="text-xs text-gray-400">${duo.match.champion} (${duo.match.role})</div>`;
         html += `</div>`;
         html += `<div class="${winTextColor} font-bold">${winText}</div>`;
@@ -2998,34 +4618,32 @@ function setupTabHandlers() {
     
     console.log('Tab clicked, tabId:', tabId);
 
-    // Handle different tabs
+    // Handle different tabs - use cached data for instant display
     if (tabId === 1) {
-      // Overview tab
-      fetchLeagueData().then(() => {
+      // Overview tab - instant display with cached data
+      fetchLeagueData(false).then(() => {
         displayOverview();
       });
     } else if (tabId === 2) {
-      // Score tab
-      fetchLeagueData().then(() => {
+      // Score tab - instant display with cached data
+      fetchLeagueData(false).then(() => {
         displayScore();
       });
     } else if (tabId === 3) {
-      // Match History tab
-      console.log('Match History tab clicked, loading data...');
-      fetchLeagueData().then(() => {
-        console.log('Data fetched, displaying match history');
+      // Match History tab - instant display with cached data
+      console.log('Match History tab clicked, using cached data...');
+      fetchLeagueData(false).then(() => {
+        console.log('Displaying match history from cache');
         displayChampRoleOverview();
       });
     } else if (tabId === 4) {
-      // Quests tab
-      fetchLeagueData().then(() => {
+      // Quests tab - instant display with cached data
+      fetchLeagueData(false).then(() => {
         displayQuests();
       });
     } else if (tabId === 5) {
-      // Mini game tab
-      fetchLeagueData().then(() => {
-        displayMiniGame();
-      });
+      // Mini game tab - no data needed
+      displayMiniGame();
     } else {
       // Other tabs
       $('#dynamicContent').html('<b> Information on Tab ' + tabId + ' ... </b>');
@@ -3116,20 +4734,379 @@ function initBannerCycling() {
   console.log('Banner cycling initialized with', bannerImages.length, 'images (crossfade enabled)');
 }
 
+// This function automatically cycles through different login splash art images with smooth crossfade
+let loginBgCycleInterval = null;
+
+function initLoginBackgroundCycling() {
+  // Array of login splash art image paths to cycle through
+  const loginImages = [
+    'Images/loginsplashart1.jpg',
+    'Images/loginsplashart2.jpg',
+    'Images/loginsplashart3.jpg',
+    'Images/loginsplashart4.jpg',
+    'Images/loginsplashart5.jpeg'
+  ];
+  
+  let currentLoginIndex = 0;
+  const loginBgElement1 = document.getElementById('loginBgImage1');
+  const loginBgElement2 = document.getElementById('loginBgImage2');
+  
+  // Check if login background elements exist
+  if (!loginBgElement1 || !loginBgElement2) {
+    console.warn('Login background elements not found');
+    return;
+  }
+  
+  // Track which image is currently visible (1 or 2)
+  let currentVisible = 1;
+  
+  // Set initial state: image 1 visible, image 2 hidden
+  loginBgElement1.style.opacity = '1';
+  loginBgElement1.style.zIndex = '2';
+  loginBgElement2.style.opacity = '0';
+  loginBgElement2.style.zIndex = '1';
+  
+  // Set initial image
+  loginBgElement1.src = loginImages[0];
+  
+  // Function to change to the next background image with crossfade
+  function changeLoginBackground() {
+    // Get the next image index
+    currentLoginIndex = (currentLoginIndex + 1) % loginImages.length;
+    const nextImageSrc = loginImages[currentLoginIndex];
+    
+    // Determine which image to update (the one that's currently hidden)
+    let imageToUpdate, imageToShow, imageToHide;
+    
+    if (currentVisible === 1) {
+      // Image 1 is visible, so update image 2 and fade it in
+      imageToUpdate = loginBgElement2;
+      imageToShow = loginBgElement2;
+      imageToHide = loginBgElement1;
+      currentVisible = 2;
+      // Bring image 2 to front
+      loginBgElement2.style.zIndex = '2';
+      loginBgElement1.style.zIndex = '1';
+    } else {
+      // Image 2 is visible, so update image 1 and fade it in
+      imageToUpdate = loginBgElement1;
+      imageToShow = loginBgElement1;
+      imageToHide = loginBgElement2;
+      currentVisible = 1;
+      // Bring image 1 to front
+      loginBgElement1.style.zIndex = '2';
+      loginBgElement2.style.zIndex = '1';
+    }
+    
+    // Set the new image source (this happens instantly while opacity is 0)
+    imageToUpdate.src = nextImageSrc;
+    
+    // Crossfade: fade out the visible image while fading in the new one
+    imageToHide.style.opacity = '0';
+    imageToShow.style.opacity = '1';
+  }
+  
+  // Clear any existing interval
+  if (loginBgCycleInterval) {
+    clearInterval(loginBgCycleInterval);
+  }
+  
+  // Start cycling: change background every 8 seconds (8000 milliseconds)
+  loginBgCycleInterval = setInterval(changeLoginBackground, 8000);
+  
+  // Preload all login background images for smoother transitions
+  loginImages.forEach(imagePath => {
+    const img = new Image();
+    img.src = imagePath;
+  });
+  
+  console.log('Login background cycling initialized with', loginImages.length, 'images (crossfade enabled)');
+}
+
+// Stop login background cycling
+function stopLoginBackgroundCycling() {
+  if (loginBgCycleInterval) {
+    clearInterval(loginBgCycleInterval);
+    loginBgCycleInterval = null;
+    console.log('Login background cycling stopped');
+  }
+}
+
 // On document ready, initialize League data and load default tab content
+// Save user credentials to localStorage
+function saveCredentials(apiKey, gameName, tagLine, region) {
+  // Use default API key if not provided
+  const defaultApiKey = 'RGAPI-47148504-2d76-4d11-93aa-2e7db404f98f';
+  const credentials = { 
+    apiKey: apiKey || defaultApiKey, 
+    gameName, 
+    tagLine, 
+    region 
+  };
+  localStorage.setItem('lolCredentials', JSON.stringify(credentials));
+  userCredentials = credentials;
+  console.log("💾 Credentials saved:", { 
+    apiKey: '***', 
+    gameName, 
+    tagLine, 
+    region 
+  });
+}
+
+// Load user credentials from localStorage
+function loadCredentials() {
+  try {
+    const saved = localStorage.getItem('lolCredentials');
+    if (saved) {
+      userCredentials = JSON.parse(saved);
+      return true;
+    }
+  } catch (err) {
+    console.error('Error loading credentials:', err);
+  }
+  return false;
+}
+
+// Clear saved credentials
+function clearCredentials() {
+  localStorage.removeItem('lolCredentials');
+  userCredentials = { apiKey: null, gameName: null, tagLine: null, region: null };
+}
+
+// Show login page
+function showLoginPage() {
+  $('#loginPage').removeClass('hidden');
+  $('#dashboardPage').addClass('hidden');
+  // Initialize login background cycling when login page is shown
+  initLoginBackgroundCycling();
+  // Pre-populate form if credentials exist
+  if (userCredentials.gameName) {
+    $('#apiKey')?.val(userCredentials.apiKey || '');
+    $('#gameName').val(userCredentials.gameName);
+    $('#tagLine').val(userCredentials.tagLine);
+    $('#region').val(userCredentials.region);
+  }
+}
+
+// Show dashboard (hide login page)
+function showDashboard() {
+  $('#loginPage').addClass('hidden');
+  $('#dashboardPage').removeClass('hidden');
+  // Stop login background cycling when dashboard is shown
+  stopLoginBackgroundCycling();
+}
+
+// Handle logout
+function handleLogout() {
+  clearCredentials();
+  // Reset data load state to force fresh fetch on next login
+  dataLoadState.isLoaded = false;
+  dataLoadState.isLoading = false;
+  dataLoadState.lastLoadTime = null;
+  dataLoadState.loadPromise = null;
+  // Clear league data
+  leagueData = {
+    currentRank: null,
+    pastSeasonRanks: [],
+    mostPlayedChampions: [],
+    quests: [],
+    matches: [],
+    playerLevel: {
+      level: 1,
+      totalXP: 0,
+      xpForNextLevel: 100
+    }
+  };
+  showLoginPage();
+  $('#dynamicContent').html('');
+  // Reload the page to ensure a clean state
+  location.reload();
+}
+
+// Handle login form submission
+function handleLoginSubmit(e) {
+  e.preventDefault();
+  
+  // Lambda requires api_key field in request (even if empty - Lambda handles it internally)
+  const apiKey = $('#apiKey').val() || '';
+  const gameName = $('#gameName').val().trim();
+  const tagLine = $('#tagLine').val().trim();
+  const region = $('#region').val().trim();
+  
+  console.log("📝 Form submission - Raw values:", { 
+    apiKey: apiKey || '(empty)',
+    gameName: gameName || '(empty)',
+    tagLine: tagLine || '(empty)',
+    region: region || '(empty)'
+  });
+  
+  const errorDiv = $('#loginError');
+  const errorSpan = errorDiv.find('span');
+  errorDiv.addClass('hidden');
+  errorSpan.text('');
+  
+  // Validate all fields including API key
+  if (!apiKey || !apiKey.trim()) {
+    errorSpan.html(`
+      <strong>⚠️ API Key Required</strong><br>
+      <small class="text-gray-400">Please enter your Riot API key. Get one from <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a></small>
+    `);
+    errorDiv.removeClass('hidden');
+    return;
+  }
+  
+  if (!gameName || !tagLine || !region) {
+    errorSpan.text(`Please fill in all fields. Missing: ${!gameName ? 'Game Name' : ''} ${!tagLine ? 'Tag Line' : ''} ${!region ? 'Region' : ''}`);
+    errorDiv.removeClass('hidden');
+    return;
+  }
+  
+  // Validate API key format
+  const trimmedApiKey = apiKey.trim();
+  if (!trimmedApiKey.startsWith('RGAPI-')) {
+    errorSpan.html(`
+      <strong>⚠️ Invalid API Key Format</strong><br>
+      <small class="text-gray-400">API key must start with "RGAPI-". Check that you copied the full key from the Riot Developer Portal.</small>
+    `);
+    errorDiv.removeClass('hidden');
+    return;
+  }
+  
+  // Save credentials (use provided API key)
+  saveCredentials(trimmedApiKey, gameName, tagLine, region);
+  
+  // Show loading state
+  const submitBtn = $('#loginSubmitBtn');
+  const btnText = $('#loginBtnText');
+  submitBtn.prop('disabled', true);
+  btnText.text('Loading...');
+  
+  // Show loading message on login page
+  errorDiv.addClass('hidden');
+  
+  // Reset data load state for fresh fetch
+  dataLoadState.isLoaded = false;
+  dataLoadState.isLoading = false;
+  dataLoadState.lastLoadTime = null;
+  dataLoadState.loadPromise = null;
+  
+  // Fetch data (force refresh on login)
+  fetchLeagueData(true, true)
+    .then(() => {
+      console.log("✅ Data fetch complete, showing dashboard");
+      console.log("📊 Current leagueData:", {
+        rank: leagueData.currentRank,
+        matches: leagueData.matches.length,
+        champions: leagueData.mostPlayedChampions.length
+      });
+      
+      // Show dashboard and hide login page
+      showDashboard();
+      
+      // Set first tab as active and load overview
+      $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
+      
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        displayOverview();
+        console.log("✅ Overview displayed with API data");
+      }, 100);
+    })
+    .catch((error) => {
+      console.error("❌ Login failed:", error);
+      
+      // Format error message for display
+      let errorMessage = error.message;
+      let is403Error = error.message.includes('403') || error.message.includes('Forbidden');
+      
+      if (is403Error) {
+        // Convert newlines to HTML breaks for better formatting
+        errorMessage = error.message.replace(/\n/g, '<br>');
+        
+        // Highlight the API key expiration warning
+        errorMessage = errorMessage.replace(
+          /⚠️ MOST COMMON CAUSE: API KEY EXPIRED/g,
+          '<strong class="text-yellow-400">⚠️ MOST COMMON CAUSE: API KEY EXPIRED</strong>'
+        );
+        errorMessage = errorMessage.replace(
+          /🔑 API KEY EXPIRED/g,
+          '<strong class="text-yellow-400">🔑 API KEY EXPIRED</strong>'
+        );
+      }
+      
+      const errorSpan = errorDiv.find('span');
+      errorSpan.html(`
+        ${is403Error ? '<div class="mb-3 p-3 bg-yellow-900/20 border border-yellow-500/50 rounded-lg"><strong class="text-yellow-400">⚠️ API Key Likely Expired</strong><br><small class="text-gray-300">Riot API keys expire after 24 hours. Get a new key from the <a href="https://developer.riotgames.com/" target="_blank" class="text-sky-400 underline">Riot Developer Portal</a> and update it in the form above.</small></div>' : ''}
+        <strong>Error:</strong> ${errorMessage}<br>
+        <small class="text-gray-500 mt-2 block">Check browser console (F12) for detailed diagnostics</small>
+      `);
+      errorDiv.removeClass('hidden');
+      submitBtn.prop('disabled', false);
+      btnText.text('Load Player Data');
+    });
+}
+
 $(document).ready(function() {
   console.log("On Load");
   
-  // Initialize banner cycling
+  // Check for saved credentials
+  const hasCredentials = loadCredentials();
+  
+  // Setup login form handler
+  $('#loginForm').on('submit', handleLoginSubmit);
+  
+  // Enhanced dropdown arrow animation
+  const regionSelect = $('#region');
+  const regionArrow = $('#regionArrow');
+  
+  if (regionSelect.length && regionArrow.length) {
+    // Rotate arrow on focus/blur
+    regionSelect.on('focus', function() {
+      regionArrow.css('transform', 'rotate(180deg)');
+    });
+    
+    regionSelect.on('blur', function() {
+      regionArrow.css('transform', 'rotate(0deg)');
+    });
+    
+    // Also handle change event for better UX
+    regionSelect.on('change', function() {
+      // Add a subtle pulse effect when selection changes
+      regionSelect.addClass('ring-2 ring-sky-500/50');
+      setTimeout(() => {
+        regionSelect.removeClass('ring-2 ring-sky-500/50');
+      }, 300);
+    });
+  }
+  
+  // Pre-populate form if credentials exist
+  if (hasCredentials) {
+    $('#apiKey')?.val(userCredentials.apiKey || '');
+    $('#gameName').val(userCredentials.gameName);
+    $('#tagLine').val(userCredentials.tagLine);
+    $('#region').val(userCredentials.region);
+  }
+  
+  // Initialize banner cycling (only for dashboard)
   initBannerCycling();
   
   // Setup tab click handlers
   setupTabHandlers();
   
+  // If no credentials, show login page immediately
+  if (!hasCredentials) {
+    console.log("No credentials found, showing login page");
+    showLoginPage();
+    return; // Exit early, don't try to load data
+  }
+  
+  // User has saved credentials, show dashboard and load data
+  console.log("Credentials found, showing dashboard");
+  showDashboard();
+  
   // Check if URL has a match parameter and open that match
   checkAndOpenMatchFromUrl();
   
-  // Only set first tab as active and load overview if no match parameter exists
   const urlParams = new URLSearchParams(window.location.search);
   const matchId = urlParams.get('match');
   
@@ -3137,10 +5114,33 @@ $(document).ready(function() {
     // Set first tab as active
     $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
     
-    // Initialize League data (mock for now, ready for API integration)
-    fetchLeagueData().then(() => {
-      displayOverview();
-    });
+    // Reset data load state for fresh fetch on page load
+    dataLoadState.isLoaded = false;
+    dataLoadState.isLoading = false;
+    dataLoadState.lastLoadTime = null;
+    dataLoadState.loadPromise = null;
+    
+    // Initialize League data from API (no mock data fallback)
+    fetchLeagueData(true, true)
+      .then(() => {
+        console.log("✅ Auto-load complete, displaying overview");
+        console.log("📊 leagueData before display:", leagueData);
+        displayOverview();
+      })
+      .catch((error) => {
+        console.error("❌ Auto-load failed:", error);
+        // Show error but don't use mock data
+        $('#dynamicContent').html(`
+          <div class="bg-red-900/20 border border-red-500 rounded-lg p-6">
+            <h3 class="text-red-400 font-semibold mb-2">Error Loading Data</h3>
+            <p class="text-gray-300 mb-4">${error.message}</p>
+            <p class="text-gray-400 text-sm mb-4">Please try logging in again or check the console for details.</p>
+            <button onclick="handleLogout()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded">
+              Go to Login
+            </button>
+          </div>
+        `);
+      });
   }
 });
 
