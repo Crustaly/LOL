@@ -1349,7 +1349,12 @@ function mapAPIDataToLeagueData(playerStats, questsData) {
           turretTakedowns: p.turretTakedowns || p.turretKills || 0,
           dragonKills: p.dragonKills || 0,
           baronKills: p.baronKills || 0,
-          items: p.items || p.itemsBought || []
+          items: p.items || p.itemsBought || [],
+          // Preserve team information for duo matching
+          teamId: p.teamId || p.team_id,
+          participantId: p.participantId || p.participant_id,
+          team: p.team,
+          originalIndex: idx // Store original index before sorting
         };
       });
       
@@ -2589,7 +2594,6 @@ function displayChampRoleOverview() {
           html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">KDA</div><div class="text-base font-bold text-emerald-400">${kdaRatio.toFixed(2)}</div></div>`;
           html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">CS/min</div><div class="text-base font-bold text-gray-200">${(player.csPerMin || 0).toFixed(1)}</div></div>`;
           html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Gold</div><div class="text-base font-bold text-gray-200">${(player.goldEarned || 0).toLocaleString()}</div></div>`;
-          html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">DMG Taken</div><div class="text-base font-bold text-gray-200">${(player.damageTaken || 0).toLocaleString()}</div></div>`;
           html += `<div class="bg-slate-900 rounded p-2"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Vision Score</div><div class="text-base font-bold text-gray-200">${(player.visionScore || 0)}</div></div>`;
           html += `<div class="bg-slate-900 rounded p-2 col-span-2 md:col-span-4"><div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Items</div><div class="text-sm font-semibold text-gray-200">${(player.items && player.items.length > 0) ? player.items.join(', ') : 'N/A'}</div></div>`;
           html += '</div></div>';
@@ -2601,40 +2605,6 @@ function displayChampRoleOverview() {
       }
       
       html += '</div>'; // Close leaderboard container
-      
-      // Pros and Cons Section
-      html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
-      html += '<div class="flex items-center justify-between cursor-pointer hover:text-sky-400 transition-colors match-analysis-toggle">';
-      html += '<h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Match Analysis</h4>';
-      html += '<div class="match-analysis-arrow">▼</div>';
-      html += '</div>';
-      html += '<div class="match-analysis-content grid grid-cols-1 md:grid-cols-2 gap-4 mt-4" style="display: none;">';
-      
-      // Pros
-      html += '<div>';
-      html += '<h5 class="text-sm font-semibold text-emerald-400 mb-2 flex items-center gap-2">';
-      html += '<span>✅</span> Pros';
-      html += '</h5>';
-      html += '<ul class="space-y-1">';
-      match.pros.forEach(pro => {
-        html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-emerald-400">•</span><span>${pro}</span></li>`;
-      });
-      html += '</ul>';
-      html += '</div>';
-      
-      // Cons
-      html += '<div>';
-      html += '<h5 class="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2">';
-      html += '<span>❌</span> Cons';
-      html += '</h5>';
-      html += '<ul class="space-y-1">';
-      match.cons.forEach(con => {
-        html += `<li class="text-sm text-gray-300 flex items-start gap-2"><span class="text-red-400">•</span><span>${con}</span></li>`;
-      });
-      html += '</ul>';
-      html += '</div>';
-      
-      html += '</div></div>'; // grid and section
       
       // AI Trash Talk / Compliment Generator Section
       html += '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mt-4">';
@@ -2731,21 +2701,6 @@ function displayChampRoleOverview() {
   
   // Player stats are now always visible, no need for click handlers
   // Removed click handlers since stats are always shown
-  
-  // Setup click handlers for pros/cons toggle
-  $('.match-analysis-toggle').off('click').on('click', function(event) {
-    event.stopPropagation(); // Prevent event from bubbling to match header
-    const content = $(this).next('.match-analysis-content');
-    const arrow = $(this).find('.match-analysis-arrow');
-    
-    if (content.is(':visible')) {
-      content.slideUp();
-      arrow.text('▼');
-    } else {
-      content.slideDown();
-      arrow.text('▲');
-    }
-  });
   
   // Setup click handlers for AI mode toggle
   $('.ai-mode-toggle').off('click').on('click', function(event) {
@@ -3677,30 +3632,192 @@ function getAllPlayersFromMatches() {
   return Array.from(players).sort();
 }
 
+// Helper function to match player names flexibly (case-insensitive, handles tags, checks multiple fields)
+function matchesPlayerName(playerData, searchName) {
+  if (!searchName || !playerData) return false;
+  
+  // Normalize search name: remove tags if present, convert to lowercase, trim whitespace
+  const normalizedSearch = searchName.toLowerCase().split('#')[0].trim();
+  if (!normalizedSearch) return false;
+  
+  // Check all possible player name fields
+  const playerNameFields = [
+    playerData.player,
+    playerData.riotId,
+    playerData.gameName,
+    playerData.name
+  ].filter(field => field); // Remove undefined/null values
+  
+  // Try to match against any of the player name fields
+  for (const field of playerNameFields) {
+    const fieldStr = String(field).trim();
+    if (!fieldStr) continue;
+    
+    // Normalize field: remove tags, convert to lowercase
+    const normalizedField = fieldStr.toLowerCase().split('#')[0].trim();
+    
+    // Exact match (after normalization) - this is the primary matching method
+    if (normalizedField === normalizedSearch) {
+      return true;
+    }
+    
+    // Partial match: check if the stored field contains the search name
+    // This handles cases like "PlayerName#TAG" matching "PlayerName"
+    // But we only check one direction to avoid false positives
+    if (normalizedField.includes(normalizedSearch)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 // Function to find matches where both players played together
+// This checks each game from the match history tab (leagueData.matches)
 function findDuoMatches(player1, player2) {
   const duoMatches = [];
-  leagueData.matches.forEach(match => {
-    if (match.playerRoster) {
-      const player1Found = match.playerRoster.find(p => p.player === player1);
-      const player2Found = match.playerRoster.find(p => p.player === player2);
+  
+  // Normalize search names (trim and handle case)
+  const searchName1 = player1 ? player1.trim() : '';
+  const searchName2 = player2 ? player2.trim() : '';
+  
+  if (!searchName1 || !searchName2) {
+    console.log('⚠️ Duo Draft: Missing player names');
+    return duoMatches;
+  }
+  
+  // Get matches from match history (same data shown in match history tab)
+  const matchHistory = leagueData.matches || [];
+  
+  console.log(`🔍 Duo Draft: Searching for matches with "${searchName1}" and "${searchName2}"`);
+  console.log(`📊 Checking ${matchHistory.length} matches from match history`);
+  
+  let matchesChecked = 0;
+  let matchesWithBothPlayers = 0;
+  let matchesOnSameTeam = 0;
+  
+  // Check each game in the match history
+  matchHistory.forEach((match, index) => {
+    // Skip if match doesn't have a player roster
+    if (!match.playerRoster || !Array.isArray(match.playerRoster)) {
+      return;
+    }
+    
+    matchesChecked++;
+    
+    // Search through all players in this match's roster
+    // Check if player1 is in this match
+    const player1Found = match.playerRoster.find(p => matchesPlayerName(p, searchName1));
+    // Check if player2 is in this match
+    const player2Found = match.playerRoster.find(p => matchesPlayerName(p, searchName2));
+    
+    // If both players are found in this match, they played together
+    if (player1Found && player2Found) {
+      matchesWithBothPlayers++;
       
-      // Check if both players were on the same team (positions 1-5 or 6-10)
-      if (player1Found && player2Found) {
-        const player1Team = player1Found.position <= 5 ? 'team1' : 'team2';
-        const player2Team = player2Found.position <= 5 ? 'team1' : 'team2';
-        
-        if (player1Team === player2Team) {
-          duoMatches.push({
-            match: match,
-            player1Data: player1Found,
-            player2Data: player2Found,
-            win: player1Team === 'team1' ? match.win : !match.win
-          });
+      // Determine which team each player was on
+      // Try multiple methods to identify team:
+      // 1. Check for teamId field (100 = blue team, 200 = red team in Riot API)
+      // 2. Check for participantId (0-4 = team 1, 5-9 = team 2)
+      // 3. Check for team field
+      // 4. Use original index in roster (before sorting by OP Score)
+      // 5. Fallback: If match has team1/team2 structure, check which team they're in
+      
+      const getPlayerTeam = (player, roster) => {
+        // Method 1: Check teamId (Riot API: 100 = blue team, 200 = red team)
+        if (player.teamId !== undefined && player.teamId !== null) {
+          return player.teamId === 100 ? 'team1' : 'team2';
         }
+        
+        // Method 2: Check participantId (0-4 = team 1, 5-9 = team 2 in Riot API)
+        if (player.participantId !== undefined && player.participantId !== null) {
+          return player.participantId < 5 ? 'team1' : 'team2';
+        }
+        
+        // Method 3: Check team field (could be 100/200, 1/2, or 'team1'/'team2')
+        if (player.team !== undefined && player.team !== null) {
+          if (player.team === 100 || player.team === 1 || player.team === 'team1') {
+            return 'team1';
+          }
+          if (player.team === 200 || player.team === 2 || player.team === 'team2') {
+            return 'team2';
+          }
+        }
+        
+        // Method 4: Use originalIndex (preserved before sorting)
+        // This is the index in the original roster before OP Score sorting
+        if (player.originalIndex !== undefined && player.originalIndex !== null) {
+          // In a 5v5 game, first 5 players are typically team1, next 5 are team2
+          return player.originalIndex < 5 ? 'team1' : 'team2';
+        }
+        
+        // Method 5: Check if match has team1/team2 structure
+        if (match.team1 && match.team2) {
+          const inTeam1 = (match.team1.players || match.team1 || []).some(p => {
+            const pName = p.player || p.riotId || p.gameName || p.name || '';
+            const foundName = player.player || player.riotId || player.gameName || player.name || '';
+            return pName && foundName && pName.toLowerCase() === foundName.toLowerCase();
+          });
+          return inTeam1 ? 'team1' : 'team2';
+        }
+        
+        // Fallback: If we can't determine, assume they're on the same team
+        // This is a conservative approach - better to include matches than exclude them
+        // But log a warning so we know this is happening
+        console.warn(`⚠️ Could not determine team for player ${player.player || 'Unknown'}, using fallback`);
+        return 'team1'; // Default fallback
+      };
+      
+      const player1Team = getPlayerTeam(player1Found, match.playerRoster);
+      const player2Team = getPlayerTeam(player2Found, match.playerRoster);
+      
+      // Check if both players were on the same team
+      if (player1Team === player2Team) {
+        matchesOnSameTeam++;
+        
+        // Determine if they won or lost
+        // match.win is true if the player (you) won, so:
+        // - If they're on team1 and match.win is true, they won
+        // - If they're on team2 and match.win is false, they won
+        // But we need to know which team the match.win refers to
+        // Typically match.win refers to the player's team, so:
+        // - Find which team the "you" player is on
+        // - If both players are on that team, use match.win
+        // - Otherwise, use !match.win
+        
+        // Find which team the match.win refers to (the player's team)
+        const youPlayer = match.playerRoster.find(p => p.isYou === true || p.isYou === 'true' || p.is_you === true);
+        let matchWinTeam = 'team1'; // Default
+        if (youPlayer) {
+          matchWinTeam = getPlayerTeam(youPlayer, match.playerRoster);
+        }
+        
+        // If both players are on the same team as the match.win team, they won
+        // Otherwise, they lost
+        const didWin = (player1Team === matchWinTeam) ? match.win : !match.win;
+        
+        // Add this match to the duo matches with all relevant data
+        duoMatches.push({
+          match: match,                    // Full match data
+          player1Data: player1Found,       // Player 1's stats from this match
+          player2Data: player2Found,       // Player 2's stats from this match
+          win: didWin,                     // Whether they won together
+          player1Team: player1Team,        // Which team player 1 was on
+          player2Team: player2Team         // Which team player 2 was on
+        });
+        
+        console.log(`✅ Match ${index + 1}: Found both players on ${player1Team} - ${didWin ? 'WIN' : 'LOSS'} - ${formatDate(match.date)}`);
+      } else {
+        console.log(`⚠️ Match ${index + 1}: Both players found but on different teams (${player1Team} vs ${player2Team})`);
       }
     }
   });
+  
+  console.log(`📈 Duo Draft Results:`);
+  console.log(`   - Checked: ${matchesChecked} matches from match history`);
+  console.log(`   - Both players found in: ${matchesWithBothPlayers} matches`);
+  console.log(`   - On same team: ${matchesOnSameTeam} matches (these are counted)`);
+  
   return duoMatches;
 }
 
@@ -3714,7 +3831,8 @@ function simulateDuoDraft() {
     return;
   }
   
-  // Find matches where they played together
+  // Find matches where they played together from match history
+  // This checks each game in the match history tab and finds where both players were on the same team
   const duoMatches = findDuoMatches(player1, player2);
   
   if (duoMatches.length === 0) {
@@ -3723,7 +3841,10 @@ function simulateDuoDraft() {
     return;
   }
   
-  // Calculate statistics
+  console.log(`📊 Calculating stats from ${duoMatches.length} matches where they played together`);
+  
+  // Calculate statistics from the matches where they played together
+  // These stats come directly from the match history data
   let wins = 0;
   let totalMatches = duoMatches.length;
   let avgScore1 = 0;
@@ -3732,24 +3853,45 @@ function simulateDuoDraft() {
   let avgKDA2 = 0;
   let combinedAvgScore = 0;
   
-  duoMatches.forEach(duo => {
+  // Loop through each match where they played together
+  duoMatches.forEach((duo, index) => {
+    // Count wins (from the match outcome)
     if (duo.win) wins++;
-    avgScore1 += duo.player1Data.score || 0;
-    avgScore2 += duo.player2Data.score || 0;
+    
+    // Get player stats from this specific match
+    // Player 1's score from this match
+    avgScore1 += duo.player1Data.score || duo.player1Data.opScore || 0;
+    // Player 2's score from this match
+    avgScore2 += duo.player2Data.score || duo.player2Data.opScore || 0;
+    
+    // Calculate KDA for each player in this match
+    // KDA = (Kills + Assists) / Deaths (minimum 1 death to avoid division by zero)
     const kda1 = ((duo.player1Data.kills || 0) + (duo.player1Data.assists || 0)) / Math.max(duo.player1Data.deaths || 1, 1);
     const kda2 = ((duo.player2Data.kills || 0) + (duo.player2Data.assists || 0)) / Math.max(duo.player2Data.deaths || 1, 1);
     avgKDA1 += kda1;
     avgKDA2 += kda2;
-    combinedAvgScore += ((duo.player1Data.score || 0) + (duo.player2Data.score || 0)) / 2;
+    
+    // Combined average score for this match
+    const matchScore1 = duo.player1Data.score || duo.player1Data.opScore || 0;
+    const matchScore2 = duo.player2Data.score || duo.player2Data.opScore || 0;
+    combinedAvgScore += (matchScore1 + matchScore2) / 2;
+    
+    console.log(`   Match ${index + 1}: ${duo.win ? 'WIN' : 'LOSS'} - P1 Score: ${matchScore1.toFixed(1)}, P2 Score: ${matchScore2.toFixed(1)}, P1 KDA: ${kda1.toFixed(2)}, P2 KDA: ${kda2.toFixed(2)}`);
   });
   
+  // Calculate averages across all matches
   avgScore1 /= totalMatches;
   avgScore2 /= totalMatches;
   avgKDA1 /= totalMatches;
   avgKDA2 /= totalMatches;
   combinedAvgScore /= totalMatches;
   
+  // Calculate win rate percentage
   const winRate = (wins / totalMatches) * 100;
+  
+  console.log(`📈 Final Stats: ${wins}W/${totalMatches - wins}L (${winRate.toFixed(1)}% win rate)`);
+  console.log(`   Avg Scores: P1=${avgScore1.toFixed(1)}, P2=${avgScore2.toFixed(1)}, Combined=${combinedAvgScore.toFixed(1)}`);
+  console.log(`   Avg KDAs: P1=${avgKDA1.toFixed(2)}, P2=${avgKDA2.toFixed(2)}`);
   
   // AI Simulation: Predict future win rate
   // Factors: Historical win rate (40%), Combined average score (30%), Individual KDA synergy (20%), Sample size (10%)
@@ -3888,10 +4030,17 @@ function showDuoResults(player1, player2, duoMatches, stats) {
     
     // Match History (if available)
     if (duoMatches.length > 0) {
+      // Sort matches by date (most recent first)
+      const sortedMatches = [...duoMatches].sort((a, b) => {
+        const dateA = new Date(a.match.date);
+        const dateB = new Date(b.match.date);
+        return dateB - dateA; // Most recent first
+      });
+      
       html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-5">';
-      html += '<h4 class="text-lg font-semibold text-gray-100 mb-3">Matches Played Together</h4>';
-      html += '<div class="space-y-2 max-h-60 overflow-y-auto">';
-      duoMatches.slice(0, 10).forEach((duo, idx) => {
+      html += `<h4 class="text-lg font-semibold text-gray-100 mb-3">Matches Played Together (${duoMatches.length} total)</h4>`;
+      html += '<div class="space-y-2 max-h-96 overflow-y-auto">';
+      sortedMatches.forEach((duo, idx) => {
         const winClass = duo.win ? 'border-emerald-500 bg-emerald-500/10' : 'border-red-500 bg-red-500/10';
         const winText = duo.win ? 'Victory' : 'Defeat';
         const winTextColor = duo.win ? 'text-emerald-400' : 'text-red-400';
@@ -3899,15 +4048,13 @@ function showDuoResults(player1, player2, duoMatches, stats) {
         html += `<div class="flex justify-between items-center">`;
         html += `<div>`;
         html += `<div class="text-sm font-semibold text-gray-200">${formatDate(duo.match.date)}</div>`;
-        html += `<div class="text-xs text-gray-400">${duo.match.champion} (${duo.match.role})</div>`;
+        html += `<div class="text-xs text-gray-400">${duo.player1Data.champion || duo.match.champion} (${duo.player1Data.role || duo.match.role}) - ${duo.player1Data.player}</div>`;
+        html += `<div class="text-xs text-gray-400">${duo.player2Data.champion || 'Unknown'} (${duo.player2Data.role || 'Unknown'}) - ${duo.player2Data.player}</div>`;
         html += `</div>`;
         html += `<div class="${winTextColor} font-bold">${winText}</div>`;
         html += `</div>`;
         html += `</div>`;
       });
-      if (duoMatches.length > 10) {
-        html += `<div class="text-gray-400 text-sm text-center mt-2">... and ${duoMatches.length - 10} more</div>`;
-      }
       html += '</div>';
       html += '</div>';
     }
