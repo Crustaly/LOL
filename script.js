@@ -4134,16 +4134,26 @@ function displayChampionPicker() {
 
 // Function to pick a champion based on user stats
 function pickChampion() {
+  // Check if leagueData is available
+  if (!leagueData || !leagueData.matches || leagueData.matches.length === 0) {
+    alert('No match data available. Please load your player data first.');
+    return;
+  }
+  
   const role = $('#championPickerRole').val();
   const preferHighWinRate = $('#preferHighWinRate').is(':checked');
   
-  // Get all champions from match history with stats
+  // First, get ALL champions from match history with stats (regardless of role)
+  // This ensures we know which champions have been played
   const championStats = {};
+  const roleSpecificStats = {}; // Stats filtered by selected role
   
   leagueData.matches.forEach(match => {
     if (!match.champion) return;
     
     const champName = match.champion;
+    
+    // Initialize overall stats (all matches)
     if (!championStats[champName]) {
       championStats[champName] = {
         name: champName,
@@ -4155,27 +4165,56 @@ function pickChampion() {
       };
     }
     
-    // Filter by role if specified
-    if (role && match.role !== role) return;
-    
+    // Always add to overall stats
     championStats[champName].games++;
     if (match.win) championStats[champName].wins++;
     if (match.role) championStats[champName].roles.add(match.role);
     if (match.score !== undefined) {
       championStats[champName].totalScore += match.score;
     }
+    
+    // If role is specified, also track role-specific stats
+    if (role && match.role === role) {
+      if (!roleSpecificStats[champName]) {
+        roleSpecificStats[champName] = {
+          games: 0,
+          wins: 0,
+          totalScore: 0
+        };
+      }
+      roleSpecificStats[champName].games++;
+      if (match.win) roleSpecificStats[champName].wins++;
+      if (match.score !== undefined) {
+        roleSpecificStats[champName].totalScore += match.score;
+      }
+    }
   });
   
-  // Calculate win rates and averages
+  // Calculate win rates and averages for overall stats
   Object.keys(championStats).forEach(champ => {
     const stats = championStats[champ];
     stats.winRate = stats.games > 0 ? (stats.wins / stats.games) * 100 : 0;
     stats.avgScore = stats.games > 0 ? stats.totalScore / stats.games : 0;
   });
   
+  // Calculate role-specific win rates if role is selected
+  if (role) {
+    Object.keys(roleSpecificStats).forEach(champ => {
+      const stats = roleSpecificStats[champ];
+      stats.winRate = stats.games > 0 ? (stats.wins / stats.games) * 100 : 0;
+      stats.avgScore = stats.games > 0 ? stats.totalScore / stats.games : 0;
+    });
+  }
+  
   // Get list of all champions (use most played champions + champions from matches)
   const allChampions = new Set();
-  leagueData.mostPlayedChampions.forEach(champ => allChampions.add(champ.name));
+  if (leagueData.mostPlayedChampions && Array.isArray(leagueData.mostPlayedChampions)) {
+    leagueData.mostPlayedChampions.forEach(champ => {
+      if (champ && champ.name) {
+        allChampions.add(champ.name);
+      }
+    });
+  }
   Object.keys(championStats).forEach(champ => allChampions.add(champ));
   
   // If no matches found with role filter, use all champions
@@ -4193,25 +4232,42 @@ function pickChampion() {
   }
   
   // Weight champions based on preferences
+  // Use role-specific stats if available, otherwise use overall stats
   let weightedChampions = [];
   candidates.forEach(champ => {
-    const stats = championStats[champ] || { games: 0, winRate: 50, avgScore: 75 };
+    // Use role-specific stats if role is selected and stats exist, otherwise use overall stats
+    let stats;
+    if (role && roleSpecificStats[champ]) {
+      // Use role-specific stats for weighting when role is selected
+      stats = roleSpecificStats[champ];
+      // But still check overall stats to see if champion has been played
+      const overallStats = championStats[champ] || { games: 0, winRate: 50, avgScore: 75 };
+      stats.hasBeenPlayed = overallStats.games > 0;
+    } else {
+      // Use overall stats
+      stats = championStats[champ] || { games: 0, winRate: 50, avgScore: 75 };
+      stats.hasBeenPlayed = stats.games > 0;
+    }
+    
     let weight = 1;
     
-    // Boost weight for champions with history
-    if (stats.games > 0) {
+    // Boost weight for champions with history (check overall stats, not role-specific)
+    const overallStats = championStats[champ] || { games: 0, winRate: 50, avgScore: 75 };
+    if (overallStats.games > 0) {
       weight += 2; // Prefer champions you've played
       
-      // If prefer high win rate, boost those
-      if (preferHighWinRate && stats.winRate >= 55) {
-        weight += stats.winRate / 10; // More weight for higher win rate
+      // If prefer high win rate, use the appropriate win rate (role-specific if available)
+      const winRateToUse = (role && roleSpecificStats[champ]) ? stats.winRate : overallStats.winRate;
+      if (preferHighWinRate && winRateToUse >= 55) {
+        weight += winRateToUse / 10; // More weight for higher win rate
       } else if (!preferHighWinRate) {
         // If not preferring high win rate, include variety (even new champs)
         weight += 1;
       }
       
       // Slight boost for champions with good average scores
-      if (stats.avgScore >= 80) {
+      const scoreToUse = (role && roleSpecificStats[champ]) ? stats.avgScore : overallStats.avgScore;
+      if (scoreToUse >= 80) {
         weight += 1;
       }
     } else {
@@ -4226,33 +4282,78 @@ function pickChampion() {
   });
   
   // Pick random champion
+  if (weightedChampions.length === 0) {
+    alert('No champions available to pick from. Please make sure you have match data loaded.');
+    return;
+  }
+  
   const randomIndex = Math.floor(Math.random() * weightedChampions.length);
   const pickedChampion = weightedChampions[randomIndex];
-  const pickedStats = championStats[pickedChampion] || { games: 0, winRate: 0, avgScore: 0 };
+  
+  // Always use overall stats to check if champion has been played
+  // But use role-specific stats for display if role is selected
+  const overallStats = championStats[pickedChampion] || { 
+    games: 0, 
+    wins: 0,
+    winRate: 0, 
+    avgScore: 0,
+    roles: new Set()
+  };
+  
+  // If role is selected and we have role-specific stats, use those for display
+  // But still check overallStats.games to determine if it's a new champion
+  let pickedStats;
+  if (role && roleSpecificStats[pickedChampion]) {
+    pickedStats = {
+      ...roleSpecificStats[pickedChampion],
+      games: roleSpecificStats[pickedChampion].games, // Role-specific games
+      overallGames: overallStats.games, // Total games across all roles
+      wins: roleSpecificStats[pickedChampion].wins,
+      winRate: roleSpecificStats[pickedChampion].winRate,
+      avgScore: roleSpecificStats[pickedChampion].avgScore,
+      roles: overallStats.roles // All roles this champion has been played in
+    };
+  } else {
+    pickedStats = overallStats;
+  }
   
   // Generate recommendation message
   let recommendation = [];
-  if (pickedStats.games === 0) {
+  // Check overall games to determine if it's a new champion
+  if (overallStats.games === 0) {
     recommendation.push(`🎲 **${pickedChampion}** - New Champion Pick!`);
     recommendation.push('This is a champion you haven\'t played yet. Time to expand your champion pool!');
   } else {
     recommendation.push(`🎲 **${pickedChampion}** - Your Smart Pick!`);
-    recommendation.push(`You've played ${pickedStats.games} game${pickedStats.games !== 1 ? 's' : ''} with ${pickedChampion}.`);
-    recommendation.push(`Win Rate: ${pickedStats.winRate.toFixed(1)}%`);
+    
+    // Show role-specific stats if role is selected, otherwise show overall stats
+    if (role && roleSpecificStats[pickedChampion]) {
+      recommendation.push(`You've played ${pickedStats.games} game${pickedStats.games !== 1 ? 's' : ''} with ${pickedChampion} in ${role}.`);
+      recommendation.push(`Overall: ${overallStats.games} game${overallStats.games !== 1 ? 's' : ''} across all roles.`);
+      recommendation.push(`${role} Win Rate: ${pickedStats.winRate.toFixed(1)}%`);
+      if (overallStats.games > pickedStats.games) {
+        recommendation.push(`Overall Win Rate: ${overallStats.winRate.toFixed(1)}%`);
+      }
+    } else {
+      recommendation.push(`You've played ${pickedStats.games} game${pickedStats.games !== 1 ? 's' : ''} with ${pickedChampion}.`);
+      recommendation.push(`Win Rate: ${pickedStats.winRate.toFixed(1)}%`);
+    }
+    
     if (pickedStats.avgScore > 0) {
       recommendation.push(`Average Score: ${pickedStats.avgScore.toFixed(1)}`);
     }
     
-    if (pickedStats.winRate >= 60) {
+    const winRateToCheck = (role && roleSpecificStats[pickedChampion]) ? pickedStats.winRate : overallStats.winRate;
+    if (winRateToCheck >= 60) {
       recommendation.push('\n🔥 Excellent choice! This champion has been performing well for you.');
-    } else if (pickedStats.winRate >= 50) {
+    } else if (winRateToCheck >= 50) {
       recommendation.push('\n✅ Good pick! This champion has a positive win rate in your hands.');
-    } else if (pickedStats.winRate > 0) {
+    } else if (winRateToCheck > 0) {
       recommendation.push('\n💪 Challenge yourself! This champion could use more practice to improve your win rate.');
     }
     
-    if (pickedStats.roles.size > 0) {
-      const rolesList = Array.from(pickedStats.roles).join(', ');
+    if (overallStats.roles && overallStats.roles.size > 0) {
+      const rolesList = Array.from(overallStats.roles).join(', ');
       recommendation.push(`\nCan be played in: ${rolesList}`);
     }
   }
@@ -4268,9 +4369,15 @@ function showChampionPickerResults(champion, recommendation, stats) {
   html += '<div class="bg-slate-900 border border-sky-500 rounded-lg p-6 text-center">';
   html += `<div class="text-6xl mb-4">🎲</div>`;
   html += `<h4 class="text-3xl font-bold text-sky-400 mb-2">${champion}</h4>`;
-  if (stats.games > 0) {
-    const winRateColor = stats.winRate >= 60 ? 'text-emerald-400' : stats.winRate >= 50 ? 'text-yellow-400' : 'text-gray-400';
-    html += `<div class="text-lg ${winRateColor} font-semibold">${stats.winRate.toFixed(1)}% Win Rate</div>`;
+  // Check overallGames if it exists (for role-specific picks), otherwise check games
+  const totalGames = stats.overallGames !== undefined ? stats.overallGames : stats.games;
+  if (totalGames > 0) {
+    const winRateToShow = stats.winRate || 0;
+    const winRateColor = winRateToShow >= 60 ? 'text-emerald-400' : winRateToShow >= 50 ? 'text-yellow-400' : 'text-gray-400';
+    html += `<div class="text-lg ${winRateColor} font-semibold">${winRateToShow.toFixed(1)}% Win Rate</div>`;
+    if (stats.overallGames !== undefined && stats.overallGames > stats.games) {
+      html += `<div class="text-sm text-gray-400 mt-1">${stats.games} game${stats.games !== 1 ? 's' : ''} in selected role</div>`;
+    }
   } else {
     html += '<div class="text-lg text-gray-400 font-semibold">New Champion</div>';
   }
@@ -4285,19 +4392,24 @@ function showChampionPickerResults(champion, recommendation, stats) {
   html += '</div>';
   html += '</div>';
   
-  if (stats.games > 0) {
+  // Use overallGames if available (for role-specific stats), otherwise use games
+  const displayGames = stats.overallGames !== undefined ? stats.overallGames : stats.games;
+  if (displayGames > 0 && stats.wins !== undefined) {
     html += '<div class="grid grid-cols-3 gap-4">';
     html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
     html += '<div class="text-gray-400 text-xs mb-1">Games Played</div>';
-    html += `<div class="text-2xl font-bold text-gray-200">${stats.games}</div>`;
+    html += `<div class="text-2xl font-bold text-gray-200">${displayGames}</div>`;
+    if (stats.overallGames !== undefined && stats.overallGames > stats.games) {
+      html += `<div class="text-xs text-gray-500 mt-1">(${stats.games} in role)</div>`;
+    }
     html += '</div>';
     html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
     html += '<div class="text-gray-400 text-xs mb-1">Wins</div>';
-    html += `<div class="text-2xl font-bold text-emerald-400">${stats.wins}</div>`;
+    html += `<div class="text-2xl font-bold text-emerald-400">${stats.wins || 0}</div>`;
     html += '</div>';
     html += '<div class="bg-slate-900 border border-slate-700 rounded-lg p-3 text-center">';
     html += '<div class="text-gray-400 text-xs mb-1">Losses</div>';
-    html += `<div class="text-2xl font-bold text-red-400">${stats.games - stats.wins}</div>`;
+    html += `<div class="text-2xl font-bold text-red-400">${displayGames - (stats.wins || 0)}</div>`;
     html += '</div>';
     html += '</div>';
   }
@@ -5027,10 +5139,8 @@ function showLoginPage() {
   $('#dashboardPage').addClass('hidden');
   // Initialize login background cycling when login page is shown
   initLoginBackgroundCycling();
-  // Pre-populate form if credentials exist
-  if (userCredentials.gameName) {
-    $('#gameName').val(userCredentials.gameName);
-    $('#tagLine').val(userCredentials.tagLine);
+  // Pre-populate region if credentials exist (username and tag line are not autofilled)
+  if (userCredentials.region) {
     $('#region').val(userCredentials.region);
   }
 }
@@ -5206,10 +5316,8 @@ $(document).ready(function() {
     });
   }
   
-  // Pre-populate form if credentials exist
-  if (hasCredentials) {
-    $('#gameName').val(userCredentials.gameName);
-    $('#tagLine').val(userCredentials.tagLine);
+  // Pre-populate region if credentials exist (username and tag line are not autofilled)
+  if (hasCredentials && userCredentials.region) {
     $('#region').val(userCredentials.region);
   }
   
@@ -5224,55 +5332,12 @@ $(document).ready(function() {
   // Setup tab click handlers
   setupTabHandlers();
   
-  // If no credentials, show login page immediately
-  if (!hasCredentials) {
-    console.log("No credentials found, showing login page");
-    showLoginPage();
-    return; // Exit early, don't try to load data
-  }
+  // Always show login page on initial load
+  console.log("Showing login page on initial load");
+  showLoginPage();
   
-  // User has saved credentials, show dashboard and load data
-  console.log("Credentials found, showing dashboard");
-  showDashboard();
-  
-  // Check if URL has a match parameter and open that match
-  checkAndOpenMatchFromUrl();
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const matchId = urlParams.get('match');
-  
-  if (!matchId) {
-    // Set first tab as active
-    $('.tab').first().addClass('border-sky-500 text-sky-400').removeClass('border-transparent text-gray-500');
-    
-    // Reset data load state for fresh fetch on page load
-    dataLoadState.isLoaded = false;
-    dataLoadState.isLoading = false;
-    dataLoadState.lastLoadTime = null;
-    dataLoadState.loadPromise = null;
-    
-    // Initialize League data from API (no mock data fallback)
-    fetchLeagueData(true, true)
-      .then(() => {
-        console.log("✅ Auto-load complete, displaying overview");
-        console.log("📊 leagueData before display:", leagueData);
-        displayOverview();
-      })
-      .catch((error) => {
-        console.error("❌ Auto-load failed:", error);
-        // Show error but don't use mock data
-        $('#dynamicContent').html(`
-          <div class="bg-red-900/20 border border-red-500 rounded-lg p-6">
-            <h3 class="text-red-400 font-semibold mb-2">Error Loading Data</h3>
-            <p class="text-gray-300 mb-4">${error.message}</p>
-            <p class="text-gray-400 text-sm mb-4">Please try logging in again or check the console for details.</p>
-            <button onclick="handleLogout()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded">
-              Go to Login
-            </button>
-          </div>
-        `);
-      });
-  }
+  // Note: Dashboard will be shown after successful login via handleLoginSubmit
+  // Data will be loaded automatically when user logs in through the login form
 });
 
 
