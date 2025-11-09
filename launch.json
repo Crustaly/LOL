@@ -1,0 +1,17 @@
+{
+  "name": "lol-quests-interface",
+  "version": "1.0.0",
+  "description": "A quests interface with League of Legends aesthetic using Anime.js",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server . -p 3000",
+    "dev": "npx live-server --port=3000"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "live-server": "^1.2.2"
+  },
+  "keywords": ["league-of-legends", "quests", "anime.js", "interface"],
+  "author": "Tyler",
+  "license": "MIT"
+}
